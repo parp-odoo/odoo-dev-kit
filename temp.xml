@@ -1,0 +1,38 @@
+<template id="template_id" name="template_name">
+    <t t-name="">
+        <div class="config-container">
+            <div class="main-title">Server Configuration</div>
+            <div class="section-title">
+                <span class="section-title">Addons Paths</span>
+                <button class="add-btn" t-on-click="addPath" title="Add Addons Path">
+                    <i class="codicon codicon-add"></i>
+                </button>
+            </div>
+            <div class="addons-list">
+                <t t-foreach="state.addons" t-as="addon" t-key="addon.id">
+                    <div class="addon-row">
+                        <Input type="'text'" value="addon.name" placeholder="'Addon Name'" onChange="(val) => this.updateAddon(addon.id, 'name', val)" />
+                        <Input type="'text'" value="addon.path" placeholder="'/home/user/odoo/custom_addons'" onChange="(val) => this.updateAddon(addon.id, 'path', val)" />
+                        <Input type="'checkbox'" value="addon.versionChange" onChange="(val) => this.updateAddon(addon.id, 'versionChange', val)" />
+                        <button class="delete-btn" title="Delete" t-on-click="() => this.removePath(addon.id)">
+                            <i class="codicon codicon-trash" />
+                        </button>
+                    </div>
+                </t>
+            </div>
+
+            <Accordion class="cli-group" t-foreach="cliOptions" t-as="group" t-key="group.groupName" title="group.groupName">
+                <div class="options-grid">
+                    <t t-foreach="group.options" t-as="option" t-key="option.name">
+                        <t t-set="isEnable" t-value="state.config.cliOptions[group.groupName] and state.config.cliOptions[group.groupName][option.name]" />
+                        <div class="option-card" t-att-title="option.description" t-on-click="() => this.toggleCliOption(group, option, !isEnable)">
+                            <Input type="'checkbox'" value="isEnable" onChange="(val) => this.toggleCliOption(group, option, val)" />
+                            <span class="option-label" t-out="option.name" />
+                        </div>
+                    </t>
+                </div>
+            </Accordion>
+        </div>
+
+    </t>
+</template>

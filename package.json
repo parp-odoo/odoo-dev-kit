@@ -1,0 +1,61 @@
+{
+    "name": "odoo-dev-kit",
+    "displayName": "Odoo Dev Kit",
+    "description": "Run a simple Odoo database initialization command and stream the server logs directly in the VSCode terminal",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.76.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "odoo-dev-kit.helloOdoo",
+                "title": "Hello Odoo"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "odoo-dev-kit-sidebar-container",
+                    "title": "Odoo Dev Kit",
+                    "icon": "./assets/icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "odoo-dev-kit-sidebar-container": [
+                {
+                    "id": "odoo-dev-kit-sidebar",
+                    "type": "webview",
+                    "name": "Odoo Dev Kit"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+    },
+    "devDependencies": {
+        "@types/mocha": "^10.0.10",
+        "@types/node": "22.x",
+        "@types/vscode": "^1.109.0",
+        "@vscode/test-cli": "^0.0.12",
+        "@vscode/test-electron": "^2.5.2",
+        "eslint": "^9.39.2",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.54.0"
+    },
+    "dependencies": {
+        "@vscode/codicons": "^0.0.44"
+    }
+}

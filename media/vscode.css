@@ -1,0 +1,335 @@
+:root {
+	--container-padding: 20px;
+	--input-padding-vertical: 6px;
+	--input-padding-horizontal: 8px;
+	--input-margin-vertical: 6px;
+}
+
+/* Base */
+body {
+	padding: 0 var(--container-padding);
+	color: var(--vscode-foreground);
+	font-size: var(--vscode-font-size);
+	font-weight: var(--vscode-font-weight);
+	font-family: var(--vscode-font-family);
+	background-color: var(--vscode-editor-background);
+}
+
+ol,
+ul {
+	padding-left: var(--container-padding);
+}
+
+body > *,
+form > * {
+	margin-block: var(--input-margin-vertical);
+}
+
+*:focus {
+	outline: none;
+}
+
+/* Links */
+a {
+	color: var(--vscode-textLink-foreground);
+}
+a:hover {
+	color: var(--vscode-textLink-activeForeground);
+}
+
+/* Buttons */
+button {
+	border: none;
+	padding: var(--input-padding-vertical) var(--input-padding-horizontal);
+	border-radius: 6px;
+	outline: none;
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+	transition: background 0.15s ease, transform 0.1s ease;
+}
+
+button:hover {
+	cursor: pointer;
+	background: var(--vscode-button-hoverBackground);
+}
+
+button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* Inputs */
+input:not([type='checkbox']),
+textarea,
+select {
+	width: 100%;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-input-border);
+	padding: var(--input-padding-vertical) var(--input-padding-horizontal);
+	font-family: var(--vscode-font-family);
+	color: var(--vscode-input-foreground);
+	background-color: var(--vscode-input-background);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+
+input::placeholder,
+textarea::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+/* Page Nav */
+.page-list {
+	display: flex;
+	gap: 4px;
+	padding: 6px 0;
+}
+
+.page-btn {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 6px;
+	cursor: pointer;
+	background: transparent;
+	transition: background 0.15s ease;
+}
+
+.page-btn.active {
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.page-btn:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+/* Input Component */
+.o-input-wrapper {
+	display: flex;
+	align-items: center;
+}
+
+.o-input {
+	width: 100%;
+}
+
+/* Wrapper */
+.o-checkbox-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+/* Hide native checkbox */
+.o-checkbox-container input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* Base box */
+.o-checkmark {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-input-border);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+/* Hover */
+.o-checkbox-container:hover .o-checkmark {
+    border-color: var(--vscode-focusBorder);
+}
+
+/* Checked */
+.o-checkbox-container input:checked + .o-checkmark {
+    background: var(--vscode-button-background);
+    border-color: var(--vscode-button-background);
+}
+
+/* White check */
+.o-checkbox-container input:checked + .o-checkmark::after {
+    content: "";
+    width: 9px;
+    height: 5px;
+    border-left: 2px solid #ffffff;
+    border-bottom: 2px solid #ffffff;
+    transform: rotate(-45deg);
+    margin-bottom: 1px;
+}
+
+/* Config Section */
+.config-container {
+	padding-top: 10px;
+}
+
+.main-title {
+    font-size: 18px;
+    font-weight: 600;
+    padding: 12px 0;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--vscode-input-border);
+}
+
+.section-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	margin-top: 16px;
+}
+
+.section-title {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+/* Small Add Button */
+.add-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 4px;
+    cursor: pointer;
+
+    color: var(--vscode-descriptionForeground);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.add-btn:hover {
+    background: var(--vscode-list-hoverBackground);
+    color: var(--vscode-foreground);
+}
+
+.add-btn .codicon {
+    font-size: 16px;
+}
+
+/* List */
+.addons-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Row */
+.addon-row {
+	display: grid;
+	grid-template-columns: 1fr 2fr auto auto;
+	gap: 8px;
+	align-items: center;
+}
+
+/* Delete */
+.delete-btn {
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	padding: 0;
+	font-size: 15px;
+}
+
+.delete-btn:hover {
+	color: var(--vscode-errorForeground);
+	transform: scale(1.1);
+	background: transparent !important;
+}
+
+.cli-group {
+    margin-top: 20px;
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.option-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: all 0.2s ease;
+	overflow: hidden;
+}
+
+.option-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-1px);
+}
+
+.option-label {
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.accordion {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.accordion-header {
+    display: flex;
+    align-items: center;
+	justify-content: space-between;
+    gap: 8px;
+    padding: 8px 4px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+}
+
+.accordion-header:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.accordion-right {
+	display: flex;
+	justify-content: space-between;
+	gap: 4px;
+	align-items: center;
+}
+
+.accordion-body {
+    overflow: hidden;
+    transition: all 0.25s ease;
+    padding: 8px 0;
+}
+
+.accordion-body.collapsed {
+    display: none;
+}
+
+.accordion-title {
+    font-size: 14px;
+}
