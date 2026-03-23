@@ -1,21 +1,15 @@
 import * as vscode from "vscode";
 import { exec, execFile } from "child_process";
+import * as path from "path";
 import { getNonce } from "../utils/nonce";
-
-function getVersionFromBranch(branch: string) {
-	if (branch === "master" || branch.startsWith("master-")) {
-		return "master";
-	}
-	const saasMatch = branch.match(/(saas-\d+\.\d+)/);
-	if (saasMatch) {
-		return saasMatch[1];
-	}
-	const versionMatch = branch.match(/(\d+\.0)/);
-	if (versionMatch) {
-		return versionMatch[1];
-	}
-	return branch;
-}
+import {
+    getVersionFromBranch,
+    checkoutBranch,
+    remoteUpdate,
+    createNewBranch,
+    pushBranch,
+    hasDiff
+} from "../utils/git";
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = "odoo-dev-kit-sidebar";
@@ -68,6 +62,37 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 		this._terminal?.dispose();
 		this._terminal = undefined;
 		this._lastExecution = undefined;
+	}
+
+	private async getRepoPaths(): Promise<string[]> {
+		const state = this._context.workspaceState.get<any>("odooDevKit.webviewState") || {};
+		const config = state.config || {};
+		const paths = new Set<string>();
+
+		// Prefer dedicated gitPaths from the Git Control page
+		if (state.gitPaths && Array.isArray(state.gitPaths)) {
+			for (const gp of state.gitPaths) {
+				if (gp.path && gp.path.trim()) {
+					paths.add(gp.path.trim());
+				}
+			}
+		}
+
+		// Fallback: use odooBinPath and addons if no gitPaths configured
+		if (paths.size === 0) {
+			if (config.odooBinPath) {
+				const odooPath = path.dirname(config.odooBinPath);
+				if (odooPath) { paths.add(odooPath); }
+			}
+			if (config.addons && Array.isArray(config.addons)) {
+				for (const addon of config.addons) {
+					if (addon.path && addon.path.trim()) {
+						paths.add(addon.path.trim());
+					}
+				}
+			}
+		}
+		return Array.from(paths);
 	}
 
 	public resolveWebviewView(
@@ -218,6 +243,85 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 						state: this._context.workspaceState.get("odooDevKit.webviewState") || null,
 					});
 					break;
+				case "gitCommand": {
+					if (message.action === "removeHistory") {
+						const state = this._context.workspaceState.get<any>("odooDevKit.webviewState") || {};
+						if (state.gitHistory && state.gitHistory[message.version]) {
+							state.gitHistory[message.version] = state.gitHistory[message.version].filter((b: string) => b !== message.branch);
+							if (state.gitHistory[message.version].length === 0) {
+								delete state.gitHistory[message.version];
+							}
+							await this._context.workspaceState.update("odooDevKit.webviewState", state);
+							webviewView.webview.postMessage({
+								command: "restoreState",
+								state: state
+							});
+						}
+						break;
+					}
+
+					const repoPaths = await this.getRepoPaths();
+					if (repoPaths.length === 0) {
+						vscode.window.showWarningMessage("No repositories configured. Please configure Odoo bin path or addons paths.");
+						break;
+					}
+
+					try {
+						webviewView.webview.postMessage({ command: "gitOperationStart" });
+						vscode.window.showInformationMessage(`Starting Git ${message.action}...`);
+						
+						const actions = repoPaths.map(async repoPath => {
+							switch (message.action) {
+								case "checkout":
+									return checkoutBranch(repoPath, message.branch);
+								case "remoteUpdate":
+									return remoteUpdate(repoPath);
+								case "newBranch": {
+								const newBranchName = (message.branch || "").trim();
+								if (!newBranchName) {
+									return;
+								}
+								vscode.window.showInformationMessage(`Creating branch "${newBranchName}" in ${repoPath}`);
+								return createNewBranch(repoPath, "", newBranchName);
+							}	
+								case "push":
+									return pushBranch(repoPath, false);
+								case "forcePush":
+									return pushBranch(repoPath, true);
+							}
+						});
+						await Promise.all(actions);
+
+						vscode.window.showInformationMessage(`Git ${message.action} completed successfully.`);
+
+						if (message.action === "checkout") {
+							const state = this._context.workspaceState.get<any>("odooDevKit.webviewState") || {};
+							if (!state.gitHistory) { state.gitHistory = {}; }
+							
+							const version = getVersionFromBranch(message.branch);
+							if (!state.gitHistory[version]) {
+								state.gitHistory[version] = [];
+							}
+							if (!state.gitHistory[version].includes(message.branch)) {
+								state.gitHistory[version].push(message.branch);
+							}
+							
+							await this._context.workspaceState.update("odooDevKit.webviewState", state);
+							// Push updated state AND signal to clear the input now that checkout is done
+							webviewView.webview.postMessage({
+								command: "restoreState",
+								state: state,
+								clearBranchInput: true,
+							});
+						}
+					} catch (error: any) {
+						console.log("Error [gitCommand]", message.action, error);
+						vscode.window.showErrorMessage(error.message || 'Git operation failed');
+					} finally {
+						webviewView.webview.postMessage({ command: "gitOperationEnd" });
+					}
+					break;
+				}
 			}
 		});
 	}

@@ -204,13 +204,14 @@ textarea::placeholder {
 .add-btn {
     background: transparent;
     border: none;
-    padding: 4px;
-    width: 24px;
+    padding: 4px 6px;
+    min-width: 24px;
     height: 24px;
 
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
 
     border-radius: 4px;
     cursor: pointer;
@@ -477,4 +478,96 @@ textarea::placeholder {
 
 .cli-input {
     flex: 1;
+}
+
+/* Git loading bar */
+.git-actions-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: nowrap;
+}
+
+.git-action-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.git-action-btn:hover {
+    background: var(--vscode-button-hoverBackground);
+}
+
+.git-action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.git-action-danger {
+    background: var(--vscode-errorForeground);
+    color: var(--vscode-editor-background);
+}
+
+/* Git loading bar */
+.git-loading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 9999;
+    background: var(--vscode-editor-background);
+    overflow: hidden;
+}
+
+.git-loading-progress {
+    height: 100%;
+    background: var(--vscode-progressBar-background, var(--vscode-button-background));
+    animation: git-loading-slide 1.4s ease-in-out infinite;
+    transform-origin: left center;
+}
+
+@keyframes git-loading-slide {
+    0%   { transform: translateX(-100%) scaleX(0.5); }
+    50%  { transform: translateX(60%)   scaleX(0.4); }
+    100% { transform: translateX(200%)  scaleX(0.5); }
+}
+
+/* History item row */
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: var(--vscode-editor-inactiveSelectionBackground);
+    gap: 6px;
+}
+
+.history-item:hover {
+    background: var(--vscode-list-hoverBackground);
+}
+
+.history-item .branch-name {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.history-item .history-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
 }

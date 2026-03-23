@@ -1,5 +1,6 @@
 import { Server } from "./pages/Server.js";
 import { Config } from "./pages/Config.js";
+import { GitControl } from "./pages/GitControl.js";
 
 const { Component, useState, useEffect, mount, xml } = owl;
 const vscode = acquireVsCodeApi();
@@ -45,7 +46,7 @@ function toPlainState(state) {
 }
 
 class App extends Component {
-    static components = { Server, Config };
+    static components = { Server, Config, GitControl };
     static template = xml`
         <div class="page-list">
             <t t-foreach="pages" t-as="page" t-key="page.name">
@@ -99,6 +100,12 @@ class App extends Component {
                 title: "Update Configurations",
                 icon: "codicon-settings",
                 component: Config,
+            },
+            {
+                name: "Git",
+                title: "Git Control",
+                icon: "codicon-source-control",
+                component: GitControl,
             },
         ];
     }

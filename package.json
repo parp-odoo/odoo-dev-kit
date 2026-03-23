@@ -2,7 +2,7 @@
     "name": "odoo-dev-kit",
     "displayName": "Odoo Dev Kit",
     "description": "Run a simple Odoo database initialization command and stream the server logs directly in the VSCode terminal",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "publisher": "ParthPatel",
     "repository": {
         "type": "git",
