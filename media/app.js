@@ -1,49 +1,11 @@
-import { Server } from "./pages/Server.js";
-import { Config } from "./pages/Config.js";
-import { GitControl } from "./pages/GitControl.js";
+import { Server } from "./pages/server/Server.js";
+import { Config } from "./pages/config/Config.js";
+import { GitControl } from "./pages/git-control/GitControl.js";
+import { requestPersistedState } from "./utils/persistedState.js";
+import { clonePlainState } from "./utils/general-utils.js";
 
 const { Component, useState, useEffect, mount, xml } = owl;
 const vscode = acquireVsCodeApi();
-
-function requestPersistedState(timeoutMs = 1000) {
-    const existing = vscode.getState();
-    if (existing) {
-        return Promise.resolve(existing);
-    }
-    return new Promise(resolve => {
-        let settled = false;
-        const handler = event => {
-            const message = event.data;
-            if (message?.command !== "restoreState") {
-                return;
-            }
-            if (settled) {
-                return;
-            }
-            settled = true;
-            window.removeEventListener("message", handler);
-            resolve(message.state || null);
-        };
-        setTimeout(() => {
-            if (settled) {
-                return;
-            }
-            settled = true;
-            window.removeEventListener("message", handler);
-            resolve(null);
-        }, timeoutMs);
-        window.addEventListener("message", handler);
-        vscode.postMessage({ command: "requestState" });
-    });
-}
-
-function toPlainState(state) {
-    try {
-        return JSON.parse(JSON.stringify(state));
-    } catch {
-        return null;
-    }
-}
 
 class App extends Component {
     static components = { Server, Config, GitControl };
@@ -76,7 +38,7 @@ class App extends Component {
             () => {
                 const prev = this.vscode.getState() || {};
                 const next = { ...prev, activePage: this.state.activePage };
-                const plain = toPlainState(next) || next;
+                const plain = clonePlainState(next) || next;
                 this.vscode.setState(plain);
                 this.vscode.postMessage({
                     command: "persistState",
@@ -120,7 +82,7 @@ class App extends Component {
 }
 
 (async () => {
-    const persistedState = await requestPersistedState();
+    const persistedState = await requestPersistedState(vscode);
     if (persistedState) {
         vscode.setState(persistedState);
     }

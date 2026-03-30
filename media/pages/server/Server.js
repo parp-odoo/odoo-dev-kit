@@ -1,6 +1,18 @@
-import { Input } from "../components/input.js";
-import { Accordion } from "../components/accordion.js";
-import { cliOptions } from "../utils/cli-options.js";
+import { Input } from "../../components/input.js";
+import { Accordion } from "../../components/accordion.js";
+import { cliOptions } from "../../utils/cli-options.js";
+import {
+    formatValue,
+    getFirstAddonPath,
+    getValidAddons,
+    getEnabledAddons,
+    getEnabledOptionsList,
+    getRunCommand,
+    validateRunConfiguration,
+    getDropDbCommand,
+} from "./command-builder.js";
+import { createServerState } from "./state.js";
+import { clonePlainState } from "../../utils/general-utils.js";
 
 const { Component, xml, useState, useEffect } = owl;
 
@@ -11,34 +23,23 @@ export class Server extends Component {
         this._dbRequestId = 0;
         this._lastAddonPath = "";
         this.cliOptions = cliOptions;
+        this.vscode = this.props.vscode;
 
-        const savedState = this.props.vscode.getState() || {};
+        const savedState = this.vscode.getState() || {};
 
-        this.state = useState({
-            config: {
-                addons: [{ id: 1, name: "", path: "", enabled: true }],
-                cliOptions: {},
-                pythonVenv: "",
-                odooBinPath: "",
-                autoDetectDbName: true,
-                ...(savedState.config || {}),
-            },
-            params: savedState.params || {},
-            runMode: "update",
-            isRunning: false,
-        });
+        this.state = useState(createServerState(savedState));
 
         useEffect(
             () => {
-                const prev = this.props.vscode.getState() || {};
+                const prev = this.vscode.getState() || {};
                 const next = {
                     ...prev,
                     params: this.state.params,
                     config: this.state.config,
                 };
-                const plain = JSON.parse(JSON.stringify(next));
-                this.props.vscode.setState(plain);
-                this.props.vscode.postMessage({
+                const plain = clonePlainState(next);
+                this.vscode.setState(plain);
+                this.vscode.postMessage({
                     command: "persistState",
                     state: plain,
                 });
@@ -82,15 +83,12 @@ export class Server extends Component {
                     return;
                 }
                 const addonPath = this.getFirstAddonPath();
-                if (!addonPath) {
-                    return;
-                }
-                if (addonPath === this._lastAddonPath) {
+                if (!addonPath || addonPath === this._lastAddonPath) {
                     return;
                 }
                 this._lastAddonPath = addonPath;
                 const requestId = ++this._dbRequestId;
-                this.props.vscode.postMessage({
+                this.vscode.postMessage({
                     command: "resolveDbNameFromAddon",
                     addonPath,
                     requestId,
@@ -108,7 +106,7 @@ export class Server extends Component {
                 return path;
             }
         }
-        return "";
+        return getFirstAddonPath(this.state.config.addons || []);
     }
 
     getEnabledOptions(group) {
@@ -132,142 +130,30 @@ export class Server extends Component {
     }
 
     getValidAddons() {
-        return (this.state.config.addons || []).filter(
-            addon => (addon.path || "").trim() !== ""
-        );
-    }
-
-    getEnabledAddons() {
-        return this.getValidAddons().filter(addon => addon.enabled !== false);
-    }
-
-    formatValue(value) {
-        const str = String(value);
-        if (/[\s"]/g.test(str)) {
-            return `"${str.replace(/"/g, '\\"')}"`;
-        }
-        return str;
-    }
-
-    getEnabledOptionsList() {
-        const enabledByGroup = this.state.config.cliOptions || {};
-        return this.cliOptions.flatMap(group => {
-            const enabled = enabledByGroup[group.groupName] || {};
-            return group.options.filter(opt => enabled[opt.name]);
-        });
-    }
-
-    getCommandArgs() {
-        const args = [];
-        const enabledOptions = this.getEnabledOptionsList();
-        const runMode = this.state.runMode || "update";
-
-        for (const opt of enabledOptions) {
-            if (opt.name === "addons-path") {
-                continue;
-            }
-            if (opt.name === "init" || opt.name === "update") {
-                continue;
-            }
-            const value = this.state.params[opt.name];
-            if (opt.type === "boolean") {
-                if (value === true) {
-                    args.push(opt.key);
-                }
-                continue;
-            }
-            if (value === undefined || value === null || value === "") {
-                continue;
-            }
-            args.push(opt.key, this.formatValue(value));
-        }
-
-        const initOpt = enabledOptions.find(opt => opt.name === "init");
-        const updateOpt = enabledOptions.find(opt => opt.name === "update");
-        if (runMode === "init" && initOpt) {
-            const initValue = this.state.params[initOpt.name];
-            if (initValue !== undefined && initValue !== null && initValue !== "") {
-                args.push(initOpt.key, this.formatValue(initValue));
-            }
-        }
-        if (runMode !== "init" && updateOpt) {
-            const updateValue = this.state.params[updateOpt.name];
-            if (updateValue !== undefined && updateValue !== null && updateValue !== "") {
-                args.push(updateOpt.key, this.formatValue(updateValue));
-            }
-        }
-
-        const addonsParam = (this.state.params["addons-path"] || "").trim();
-        let addonsValue = addonsParam;
-        if (!addonsValue) {
-            const paths = this.getEnabledAddons()
-                .map(addon => (addon.path || "").trim())
-                .filter(Boolean);
-            if (paths.length) {
-                addonsValue = paths.join(",");
-            }
-        }
-        if (addonsValue) {
-            args.push("--addons-path", this.formatValue(addonsValue));
-        }
-
-        return args;
-    }
-
-    getBaseCommandParts() {
-        const venv = (this.state.config.pythonVenv || "").trim();
-        const odooBin = (this.state.config.odooBinPath || "").trim() || "odoo-bin";
-        const parts = [];
-        if (venv) {
-            const pythonPath = `${venv.replace(/\/+$/, "")}/bin/python`;
-            parts.push(this.formatValue(pythonPath));
-        }
-        parts.push(this.formatValue(odooBin));
-        return parts;
+        return getValidAddons(this.state.config.addons || []);
     }
 
     getRunCommand() {
-        return [...this.getBaseCommandParts(), ...this.getCommandArgs()].join(" ");
+        return getRunCommand({
+            cliOptions: this.cliOptions,
+            config: this.state.config,
+            params: this.state.params,
+            runMode: this.state.runMode || "update",
+        });
     }
 
     validateRunConfiguration() {
-        const errors = [];
-        const enabledAddons = this.getEnabledAddons();
-        const enabledAddonPaths = enabledAddons.map(addon => (addon.path || "").trim());
-        const invalidAddonPaths = enabledAddonPaths.filter(path => path.length < 3);
-        const addonsParam = (this.state.params["addons-path"] || "").trim();
-        if (!addonsParam && enabledAddonPaths.length === 0) {
-            errors.push("Add at least one enabled addon path or set --addons-path.");
-        }
-        if (invalidAddonPaths.length) {
-            errors.push("Some enabled addon paths look invalid.");
-        }
-        const venv = (this.state.config.pythonVenv || "").trim();
-        if (venv && venv.length < 3) {
-            errors.push("Python venv path looks too short.");
-        }
-        const odooBin = (this.state.config.odooBinPath || "").trim();
-        if (odooBin && odooBin.length < 3) {
-            errors.push("Odoo bin path looks too short.");
-        }
-        if (addonsParam && addonsParam.length < 3) {
-            errors.push("--addons-path looks too short.");
-        }
-        return errors;
+        return validateRunConfiguration(this.state.config, this.state.params);
     }
 
     getDropDbCommand() {
-        const dbName = (this.state.params.database || "").trim();
-        if (!dbName) {
-            return "";
-        }
-        return `dropdb ${this.formatValue(dbName)}`;
+        return getDropDbCommand(this.state.params);
     }
 
     async copyRunCommand() {
         const command = this.getRunCommand();
         if (!command) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showMessage",
                 text: "No command to copy. Configure options first.",
             });
@@ -287,12 +173,12 @@ export class Server extends Component {
                 document.execCommand("copy");
                 document.body.removeChild(textarea);
             }
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showMessage",
                 text: "Run command copied to clipboard.",
             });
         } catch {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showMessage",
                 text: "Failed to copy command.",
             });
@@ -302,7 +188,7 @@ export class Server extends Component {
     async runServer() {
         const validationErrors = this.validateRunConfiguration();
         if (validationErrors.length) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showWarning",
                 text: `Cannot run server: ${validationErrors.join(" ")}`,
             });
@@ -311,13 +197,13 @@ export class Server extends Component {
         this.state.runMode = "update";
         const command = this.getRunCommand();
         if (!command) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showMessage",
                 text: "No command to run. Configure options first.",
             });
             return;
         }
-        this.props.vscode.postMessage({
+        this.vscode.postMessage({
             command: "runCommand",
             text: command,
         });
@@ -327,7 +213,7 @@ export class Server extends Component {
     async dropDbAndRun() {
         const validationErrors = this.validateRunConfiguration();
         if (validationErrors.length) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showWarning",
                 text: `Cannot run server: ${validationErrors.join(" ")}`,
             });
@@ -335,7 +221,7 @@ export class Server extends Component {
         }
         const dbName = (this.state.params.database || "").trim();
         if (!dbName) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showWarning",
                 text: "Set a database name first.",
             });
@@ -345,13 +231,13 @@ export class Server extends Component {
         const runCommand = this.getRunCommand();
         const dropCommand = this.getDropDbCommand();
         if (!runCommand || !dropCommand) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showMessage",
                 text: "No command to run. Configure options first.",
             });
             return;
         }
-        this.props.vscode.postMessage({
+        this.vscode.postMessage({
             command: "runCommand",
             text: `${dropCommand} && ${runCommand}`,
         });
@@ -359,7 +245,7 @@ export class Server extends Component {
     }
 
     async stopServer() {
-        this.props.vscode.postMessage({
+        this.vscode.postMessage({
             command: "stopServer",
         });
         this.state.isRunning = false;
@@ -369,13 +255,13 @@ export class Server extends Component {
         const command = this.getDropDbCommand();
         const dbName = (this.state.params.database || "").trim();
         if (!command) {
-            this.props.vscode.postMessage({
+            this.vscode.postMessage({
                 command: "showWarning",
                 text: "Set a database name first.",
             });
             return;
         }
-        this.props.vscode.postMessage({
+        this.vscode.postMessage({
             command: "runDropDb",
             text: command,
             dbName,

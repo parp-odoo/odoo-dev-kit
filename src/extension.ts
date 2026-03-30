@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { SidebarViewProvider } from "./views/sidebar-provider";
+import { SidebarViewProvider } from "./sidebar/SidebarViewProvider";
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "odoo-dev-kit" is now active!');

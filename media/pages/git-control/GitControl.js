@@ -1,5 +1,7 @@
-import { Input } from "../components/input.js";
-import { Accordion } from "../components/accordion.js";
+import { Input } from "../../components/input.js";
+import { Accordion } from "../../components/accordion.js";
+import { createGitControlState, removeHistoryEntry } from "./state.js";
+import { clonePlainState } from "../../utils/general-utils.js";
 
 const { Component, xml, useState, useEffect } = owl;
 
@@ -9,12 +11,7 @@ export class GitControl extends Component {
     setup() {
         const savedState = this.props.vscode.getState() || {};
 
-        this.state = useState({
-            branchName: "",
-            history: savedState.gitHistory || {},
-            gitPaths: savedState.gitPaths || [{ id: Date.now(), path: "" }],
-            loading: false,
-        });
+        this.state = useState(createGitControlState(savedState));
 
         useEffect(
             () => {
@@ -24,7 +21,7 @@ export class GitControl extends Component {
                     gitHistory: this.state.history,
                     gitPaths: this.state.gitPaths,
                 };
-                const plain = JSON.parse(JSON.stringify(next));
+                const plain = clonePlainState(next);
                 this.props.vscode.setState(plain);
                 this.props.vscode.postMessage({
                     command: "persistState",
@@ -34,24 +31,24 @@ export class GitControl extends Component {
             () => [JSON.stringify(this.state.history), JSON.stringify(this.state.gitPaths)]
         );
 
-        // Listen for messages from extension backend
         useEffect(
             () => {
                 const handler = event => {
                     const message = event.data;
-                    if (message?.command === "restoreState" && message.state) {
-                        if (message.state.gitHistory !== undefined) {
-                            this.state.history = message.state.gitHistory || {};
+                    if (!message) return;
+                    const {command, state} = message;
+                    if (command === "restoreState" && state) {
+                        if (state.gitHistory) {
+                            this.state.history = state.gitHistory
                         }
-                        // Clear the branch input only once checkout + history update is done
                         if (message.clearBranchInput) {
                             this.state.branchName = "";
                         }
                     }
-                    if (message?.command === "gitOperationStart") {
+                    if (command === "gitOperationStart") {
                         this.state.loading = true;
                     }
-                    if (message?.command === "gitOperationEnd") {
+                    if (command === "gitOperationEnd") {
                         this.state.loading = false;
                     }
                 };
@@ -72,7 +69,9 @@ export class GitControl extends Component {
 
     updateGitPath(id, val) {
         const record = this.state.gitPaths.find(p => p.id === id);
-        if (record) { record.path = val; }
+        if (record) {
+            record.path = val;
+        }
     }
 
     checkoutBranch() {
@@ -81,7 +80,6 @@ export class GitControl extends Component {
             this.props.vscode.postMessage({ command: "showWarning", text: "Please enter a branch name." });
             return;
         }
-        // Don't clear branchName here — it will be cleared by the backend's clearBranchInput signal
         this.props.vscode.postMessage({ command: "gitCommand", action: "checkout", branch });
     }
 
@@ -91,15 +89,9 @@ export class GitControl extends Component {
 
     removeHistoryItem(version, branch) {
         this.props.vscode.postMessage({ command: "gitCommand", action: "removeHistory", version, branch });
-        if (this.state.history[version]) {
-            this.state.history[version] = this.state.history[version].filter(b => b !== branch);
-            if (this.state.history[version].length === 0) {
-                delete this.state.history[version];
-            }
-        }
+        removeHistoryEntry(this.state.history, version, branch);
     }
 
-    remoteUpdate() { this.props.vscode.postMessage({ command: "gitCommand", action: "remoteUpdate" }); }
     newBranch() {
         const branch = (this.state.branchName || "").trim();
         if (!branch) {
@@ -108,8 +100,14 @@ export class GitControl extends Component {
         }
         this.props.vscode.postMessage({ command: "gitCommand", action: "newBranch", branch });
     }
-    push()         { this.props.vscode.postMessage({ command: "gitCommand", action: "push" }); }
-    forcePush()    { this.props.vscode.postMessage({ command: "gitCommand", action: "forcePush" }); }
+    
+    push() {
+        this.props.vscode.postMessage({ command: "gitCommand", action: "push" });
+    }
+
+    forcePush() {
+        this.props.vscode.postMessage({ command: "gitCommand", action: "forcePush" });
+    }
 
     get versions() {
         return Object.keys(this.state.history).sort().reverse();

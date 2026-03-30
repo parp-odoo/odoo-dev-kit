@@ -1,6 +1,11 @@
-import { Accordion } from "../components/accordion.js";
-import { Input } from "../components/input.js";
-import { cliOptions } from "../utils/cli-options.js";
+import { Accordion } from "../../components/accordion.js";
+import { Input } from "../../components/input.js";
+import { cliOptions } from "../../utils/cli-options.js";
+import { clonePlainState } from "../../utils/general-utils.js";
+import {
+    getInitialConfigState,
+    countActiveOptions,
+} from "./state.js";
 
 const { Component, xml, useState, useEffect } = owl;
 
@@ -13,7 +18,7 @@ export class Config extends Component {
         const savedState = this.props.vscode.getState();
 
         this.state = useState({
-            config: this.getInitialConfigState(savedState),
+            config: getInitialConfigState(savedState),
         });
 
         useEffect(
@@ -23,7 +28,7 @@ export class Config extends Component {
                     ...prev,
                     config: this.state.config,
                 };
-                const plain = JSON.parse(JSON.stringify(next));
+                const plain = clonePlainState(next);
                 this.props.vscode.setState(plain);
                 this.props.vscode.postMessage({
                     command: "persistState",
@@ -32,22 +37,6 @@ export class Config extends Component {
             },
             () => [JSON.stringify(this.state.config)]
         );
-    }
-
-    getInitialConfigState(savedState) {
-        const defaultState = {
-            addons: [{ id: 1, name: "", path: "", enabled: true }],
-            cliOptions: {},
-            pythonVenv: "",
-            odooBinPath: "",
-            autoDetectDbName: true,
-        };
-
-        if (savedState?.config) {
-            return { ...defaultState, ...savedState.config };
-        }
-
-        return defaultState;
     }
 
     addPath() {
@@ -83,13 +72,7 @@ export class Config extends Component {
     }
 
     getCountStatus(groupName) {
-        const total = this.cliOptions.find(g => g.groupName === groupName).options.length;
-
-        const active = Object.values(
-            this.state.config.cliOptions[groupName] || {}
-        ).filter(Boolean).length;
-
-        return ` (${active}/${total})`;
+        return countActiveOptions(this.cliOptions, this.state.config.cliOptions, groupName);
     }
 
     static template = xml`
