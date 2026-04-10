@@ -5,8 +5,10 @@ import {
 	remoteUpdate,
 	createNewBranch,
 	pushBranch,
-	hasDiff,
+	commitChanges,
+	amendCommit,
 } from "../../utils/git";
+import { Repo } from "../../types";
 
 export class GitHandler {
 	constructor(
@@ -14,7 +16,29 @@ export class GitHandler {
 		private webview: any,
 	) {}
 
-	private async getRepoPaths(): Promise<string[]> {
+	private async addBranchToHistory(branch: string, clearBranchInput = false) {
+		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
+		if (!state.gitHistory) {
+			state.gitHistory = {};
+		}
+
+		const version = getVersionFromBranch(branch);
+		if (!state.gitHistory[version]) {
+			state.gitHistory[version] = [];
+		}
+		if (!state.gitHistory[version].includes(branch)) {
+			state.gitHistory[version].push(branch);
+		}
+
+		await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
+		this.webview.postMessage({
+			command: "restoreState",
+			state,
+			clearBranchInput,
+		});
+	}
+
+	private async getRepos(): Promise<Repo[]> {
 		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
 		if (!state.gitPaths || !Array.isArray(state.gitPaths)) {
 			return [];
@@ -22,8 +46,7 @@ export class GitHandler {
 
 		const gitPaths = [...state.gitPaths];
 		return gitPaths
-			.filter((gp: any) => gp.path && gp.path.trim())
-			.map((gp: any) => gp.path.trim());
+			.filter((gp: any) => gp.path && gp.path.trim());
 	}
 
 	async handle(message: any) {
@@ -48,65 +71,84 @@ export class GitHandler {
 			return;
 		}
 
-		const repoPaths = await this.getRepoPaths();
-		if (repoPaths.length === 0) {
+		const repos = await this.getRepos();
+		if (repos.length === 0) {
 			vscode.window.showWarningMessage(
 				"No repositories configured. Please configure Odoo bin path or addons paths.",
 			);
 			return;
 		}
 
+		if (message.action === "commit") {
+			const commitMessage = (message.commitMessage || "").trim();
+			if (!commitMessage) {
+				vscode.window.showWarningMessage("Commit message is required.");
+				return;
+			}
+		}
+
 		try {
 			this.webview.postMessage({ command: "gitOperationStart" });
 			vscode.window.showInformationMessage(`Starting Git ${message.action}...`);
 
-			const actions = repoPaths.map(async repoPath => {
+			const commitMessage = (message.commitMessage || "").trim();
+			const actions = repos.map(async repo => {
 				switch (message.action) {
 					case "checkout":
-						return checkoutBranch(repoPath, message.branch);
+						return checkoutBranch(repo, message.branch);
 					case "remoteUpdate":
-						return remoteUpdate(repoPath);
+						return remoteUpdate(repo);
 					case "newBranch": {
 						const newBranchName = (message.branch || "").trim();
 						if (!newBranchName) {
-							return;
+							return false;
 						}
 						vscode.window.showInformationMessage(
-							`Creating branch "${newBranchName}" in ${repoPath}`,
+							`Creating branch "${newBranchName}" in ${repo.path}`,
 						);
-						return createNewBranch(repoPath, "", newBranchName);
+						return createNewBranch(repo, "", newBranchName);
 					}
 					case "push":
-						return pushBranch(repoPath, false);
+						return pushBranch(repo, false);
 					case "forcePush":
-						return pushBranch(repoPath, true);
+						return pushBranch(repo, true);
+					case "commit":
+						return commitChanges(repo, commitMessage);
+					case "commitAmend":
+						return amendCommit(repo, commitMessage);
 				}
 			});
-			await Promise.all(actions);
+			const actionResults = await Promise.all(actions);
+
+			if (message.action === "commit" || message.action === "commitAmend") {
+				const hasCommitted = actionResults.some(result => result === true);
+				if (!hasCommitted) {
+					const actionName = message.action === "commit" ? "commit" : "amend";
+					vscode.window.showWarningMessage(
+						`No changes detected in configured repositories. Nothing to ${actionName}.`,
+					);
+					return;
+				}
+			}
+
+			if (message.action === "newBranch") {
+				const hasCreated = actionResults.some(result => result === true);
+				if (!hasCreated) {
+					vscode.window.showWarningMessage(
+						"No branch was created because no repository has changes to commit.",
+					);
+					return;
+				}
+			}
 
 			vscode.window.showInformationMessage(`Git ${message.action} completed successfully.`);
 
 			if (message.action === "checkout") {
-				const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
-				if (!state.gitHistory) {
-					state.gitHistory = {};
-				}
+				await this.addBranchToHistory(message.branch, true);
+			}
 
-				const version = getVersionFromBranch(message.branch);
-				if (!state.gitHistory[version]) {
-					state.gitHistory[version] = [];
-				}
-				if (!state.gitHistory[version].includes(message.branch)) {
-					state.gitHistory[version].push(message.branch);
-				}
-
-				await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
-				// Push updated state AND signal to clear the input now that checkout is done
-				this.webview.postMessage({
-					command: "restoreState",
-					state: state,
-					clearBranchInput: true,
-				});
+			if (message.action === "newBranch") {
+				await this.addBranchToHistory(message.branch, false);
 			}
 		} catch (error: any) {
 			console.log("Error [gitCommand]", message.action, error);
