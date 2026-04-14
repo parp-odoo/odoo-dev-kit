@@ -5,8 +5,17 @@ import {
 	remoteUpdate,
 	createNewBranch,
 	pushBranch,
-	hasDiff,
+	commitChanges,
+	amendCommit,
 } from "../../utils/git";
+import { Repo } from "../../types";
+
+
+const ACTION_WARNINGS: Record<string, string> = {
+	"newBranch": "No repositories had changes to create a new branch",
+	"commit": "No changes detected in configured repositories. Nothing to commit.",
+	"commitAmend": "No changes detected in configured repositories. Nothing to amend.",
+};
 
 export class GitHandler {
 	constructor(
@@ -14,7 +23,29 @@ export class GitHandler {
 		private webview: any,
 	) {}
 
-	private async getRepoPaths(): Promise<string[]> {
+	private async addBranchToHistory(branch: string, clearBranchInput = false) {
+		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
+		if (!state.gitHistory) {
+			state.gitHistory = {};
+		}
+
+		const version = getVersionFromBranch(branch);
+		if (!state.gitHistory[version]) {
+			state.gitHistory[version] = [];
+		}
+		if (!state.gitHistory[version].includes(branch)) {
+			state.gitHistory[version].push(branch);
+		}
+
+		await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
+		this.webview.postMessage({
+			command: "restoreState",
+			state,
+			clearBranchInput,
+		});
+	}
+
+	private async getRepos(): Promise<Repo[]> {
 		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
 		if (!state.gitPaths || !Array.isArray(state.gitPaths)) {
 			return [];
@@ -22,98 +53,100 @@ export class GitHandler {
 
 		const gitPaths = [...state.gitPaths];
 		return gitPaths
-			.filter((gp: any) => gp.path && gp.path.trim())
-			.map((gp: any) => gp.path.trim());
+			.filter((gp: any) => gp.path && gp.path.trim());
 	}
 
 	async handle(message: any) {
-		// move your FULL gitCommand case here
-		// (no logic change, just relocation)
+		const action = message.action;
+		const commitMessage = (message.commitMessage || "").trim();
+		const branchName = (message.branch || "").trim();
 
-		if (message.action === "removeHistory") {
-			const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
-			if (state.gitHistory && state.gitHistory[message.version]) {
-				state.gitHistory[message.version] = state.gitHistory[message.version].filter(
-					(b: string) => b !== message.branch,
-				);
-				if (state.gitHistory[message.version].length === 0) {
-					delete state.gitHistory[message.version];
-				}
-				await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
-				this.webview.postMessage({
-					command: "restoreState",
-					state: state,
-				});
-			}
-			return;
+		if (action === "removeHistory") {
+			return await this.removeHistoryState(message.version, message.branch);
 		}
 
-		const repoPaths = await this.getRepoPaths();
-		if (repoPaths.length === 0) {
-			vscode.window.showWarningMessage(
+		const repos = await this.getRepos();
+		if (repos.length === 0) {
+			return vscode.window.showWarningMessage(
 				"No repositories configured. Please configure Odoo bin path or addons paths.",
 			);
-			return;
+		}
+
+		const isCommitActions = ["commit", "commitAmend"].includes(action);
+		if (isCommitActions && !commitMessage) {
+			return vscode.window.showWarningMessage("Commit message is required.");
+		}
+
+		const isBranchActions = ["checkout", "newBranch"].includes(action);
+		if (isBranchActions && !branchName) {
+			return vscode.window.showWarningMessage("Branch name is required.");
 		}
 
 		try {
 			this.webview.postMessage({ command: "gitOperationStart" });
-			vscode.window.showInformationMessage(`Starting Git ${message.action}...`);
+			vscode.window.showInformationMessage(`Starting Git ${action}...`);
 
-			const actions = repoPaths.map(async repoPath => {
-				switch (message.action) {
+			const actions = repos.map(async repo => {
+				switch (action) {
 					case "checkout":
-						return checkoutBranch(repoPath, message.branch);
+						return checkoutBranch(repo, message.branch);
 					case "remoteUpdate":
-						return remoteUpdate(repoPath);
+						return remoteUpdate(repo);
 					case "newBranch": {
-						const newBranchName = (message.branch || "").trim();
-						if (!newBranchName) {
-							return;
+						const isCreated = await createNewBranch(repo, "", branchName);
+						if (isCreated) {
+							vscode.window.showInformationMessage(
+								`Branch "${branchName}" created in ${repo.path}!`,
+							);
 						}
-						vscode.window.showInformationMessage(
-							`Creating branch "${newBranchName}" in ${repoPath}`,
-						);
-						return createNewBranch(repoPath, "", newBranchName);
+						return isCreated;
 					}
 					case "push":
-						return pushBranch(repoPath, false);
+						return pushBranch(repo, false);
 					case "forcePush":
-						return pushBranch(repoPath, true);
+						return pushBranch(repo, true);
+					case "commit":
+						return commitChanges(repo, commitMessage);
+					case "commitAmend":
+						return amendCommit(repo, commitMessage);
 				}
 			});
-			await Promise.all(actions);
+			const actionResults = await Promise.all(actions);
 
-			vscode.window.showInformationMessage(`Git ${message.action} completed successfully.`);
-
-			if (message.action === "checkout") {
-				const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
-				if (!state.gitHistory) {
-					state.gitHistory = {};
-				}
-
-				const version = getVersionFromBranch(message.branch);
-				if (!state.gitHistory[version]) {
-					state.gitHistory[version] = [];
-				}
-				if (!state.gitHistory[version].includes(message.branch)) {
-					state.gitHistory[version].push(message.branch);
-				}
-
-				await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
-				// Push updated state AND signal to clear the input now that checkout is done
-				this.webview.postMessage({
-					command: "restoreState",
-					state: state,
-					clearBranchInput: true,
-				});
+			if (ACTION_WARNINGS[action] && actionResults.every(result => result === false)) {
+				return vscode.window.showWarningMessage(ACTION_WARNINGS[action] || "Action failed.");
 			}
+
+			if (isBranchActions) {
+				await this.addBranchToHistory(message.branch, false);
+			}
+
+			vscode.window.showInformationMessage(`Git ${action} completed successfully.`);
 		} catch (error: any) {
-			console.log("Error [gitCommand]", message.action, error);
+			console.log("Error [gitCommand]", action, error);
 			vscode.window.showErrorMessage(error.message || "Git operation failed");
 		} finally {
 			this.webview.postMessage({ command: "gitOperationEnd" });
 		}
 		return;
 	}
+
+	async removeHistoryState(version: string, branch: string) {
+		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
+		if (!state?.gitHistory[version]) {
+			return;
+		}
+		state.gitHistory[version] = state.gitHistory[version].filter(
+			(b: string) => b !== branch,
+		);
+		if (state.gitHistory[version].length === 0) {
+			delete state.gitHistory[version];
+		}
+		await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
+		this.webview.postMessage({
+			command: "restoreState",
+			state: state,
+		});
+	}
+
 }

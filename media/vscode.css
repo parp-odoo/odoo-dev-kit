@@ -488,6 +488,34 @@ textarea::placeholder {
     flex-wrap: nowrap;
 }
 
+.commit-section {
+    margin-bottom: 16px;
+}
+
+.commit-msg-input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    min-height: 88px;
+    resize: vertical;
+}
+
+.commit-actions-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.field-error {
+    margin-top: 6px;
+    color: var(--vscode-errorForeground);
+    font-size: 12px;
+}
+
 .git-action-btn {
     flex: 1;
     display: inline-flex;
@@ -570,4 +598,12 @@ textarea::placeholder {
     display: flex;
     gap: 4px;
     flex-shrink: 0;
+}
+
+.repo-remote {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
 }

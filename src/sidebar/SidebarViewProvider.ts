@@ -64,18 +64,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 		this._lastExecution = undefined;
 	}
 
-	private async getRepoPaths(): Promise<string[]> {
-		const state = this._context.workspaceState.get<any>("odooDevKit.webviewState") || {};
-		if (!state.gitPaths || !Array.isArray(state.gitPaths)) {
-			return [];
-		}
-
-		const gitPaths = [...state.gitPaths];
-		return gitPaths
-			.filter((gp: any) => gp.path && gp.path.trim())
-			.map((gp: any) => gp.path.trim());
-	}
-
 	public resolveWebviewView(webviewView: vscode.WebviewView) {
 		this._view = webviewView;
 

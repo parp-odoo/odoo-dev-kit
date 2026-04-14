@@ -1,8 +1,10 @@
 export function createGitControlState(savedState = {}) {
     return {
         branchName: "",
+        commitMessage: savedState.gitCommitMessage || "",
+        commitValidation: "",
         history: savedState.gitHistory || {},
-        gitPaths: savedState.gitPaths || [{ id: Date.now(), path: "" }],
+        gitPaths: savedState.gitPaths || [{ id: Date.now(), path: "", base: "", dev: "" }],
         loading: false,
     };
 }

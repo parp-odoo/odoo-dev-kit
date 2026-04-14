@@ -9,7 +9,8 @@ export class GitControl extends Component {
     static components = { Input, Accordion };
 
     setup() {
-        const savedState = this.props.vscode.getState() || {};
+        this.vscode = this.props.vscode;
+        const savedState = this.vscode.getState() || {};
 
         this.state = useState(createGitControlState(savedState));
 
@@ -20,6 +21,7 @@ export class GitControl extends Component {
                     ...prev,
                     gitHistory: this.state.history,
                     gitPaths: this.state.gitPaths,
+                    gitCommitMessage: this.state.commitMessage,
                 };
                 const plain = clonePlainState(next);
                 this.props.vscode.setState(plain);
@@ -28,18 +30,23 @@ export class GitControl extends Component {
                     state: plain,
                 });
             },
-            () => [JSON.stringify(this.state.history), JSON.stringify(this.state.gitPaths)]
+            () => [JSON.stringify(this.state.history), JSON.stringify(this.state.gitPaths), this.state.commitMessage]
         );
 
         useEffect(
             () => {
                 const handler = event => {
                     const message = event.data;
-                    if (!message) return;
+                    if (!message) {
+                        return;
+                    }
                     const {command, state} = message;
                     if (command === "restoreState" && state) {
                         if (state.gitHistory) {
-                            this.state.history = state.gitHistory
+                            this.state.history = state.gitHistory;
+                        }
+                        if (typeof state.gitCommitMessage === "string") {
+                            this.state.commitMessage = state.gitCommitMessage;
                         }
                         if (message.clearBranchInput) {
                             this.state.branchName = "";
@@ -60,53 +67,63 @@ export class GitControl extends Component {
     }
 
     addGitPath() {
-        this.state.gitPaths.push({ id: Date.now(), path: "" });
+        this.state.gitPaths.push({ id: Date.now(), path: "", base: "", dev: "" });
     }
 
     removeGitPath(id) {
         this.state.gitPaths = this.state.gitPaths.filter(p => p.id !== id);
     }
 
-    updateGitPath(id, val) {
+    updateGitRepo(id, keyName, val) {
         const record = this.state.gitPaths.find(p => p.id === id);
         if (record) {
-            record.path = val;
+            record[keyName] = val;
         }
     }
 
-    checkoutBranch() {
-        const branch = (this.state.branchName || "").trim();
-        if (!branch) {
-            this.props.vscode.postMessage({ command: "showWarning", text: "Please enter a branch name." });
+    updateCommitMessage(value) {
+        this.state.commitMessage = value;
+        if (this.state.commitValidation) {
+            this.state.commitValidation = "";
+        }
+    }
+
+    gitAction(action, opts = {}) {
+        const message = {
+            command: "gitCommand",
+            action,
+            ...opts
+        };
+        if (action === "removeHistory") {
+            const {version, branch} = opts;
+            removeHistoryEntry(this.state.history, version, branch);
+        }
+        if (action === "newBranch" || (action === "checkout" && !opts.branch)) {
+            const branch = (this.state.branchName || "").trim();
+            if (!branch) {
+                this.vscode.postMessage({ command: "showWarning", text: "Please enter a branch name." });
+                return;
+            }
+            message.branch = branch;
+        }
+        this.vscode.postMessage(message);
+    }
+
+    runCommitAction(amend = false) {
+        const commitMessage = (this.state.commitMessage || "").trim();
+        if (!amend && !commitMessage) {
+            this.state.commitValidation = "Commit message is required.";
+            this.vscode.postMessage({
+                command: "showWarning",
+                text: "Please enter a commit message.",
+            });
             return;
         }
-        this.props.vscode.postMessage({ command: "gitCommand", action: "checkout", branch });
-    }
 
-    checkoutHistoryItem(branch) {
-        this.props.vscode.postMessage({ command: "gitCommand", action: "checkout", branch });
-    }
-
-    removeHistoryItem(version, branch) {
-        this.props.vscode.postMessage({ command: "gitCommand", action: "removeHistory", version, branch });
-        removeHistoryEntry(this.state.history, version, branch);
-    }
-
-    newBranch() {
-        const branch = (this.state.branchName || "").trim();
-        if (!branch) {
-            this.props.vscode.postMessage({ command: "showWarning", text: "Please enter a branch name to use for the new branch." });
-            return;
-        }
-        this.props.vscode.postMessage({ command: "gitCommand", action: "newBranch", branch });
-    }
-    
-    push() {
-        this.props.vscode.postMessage({ command: "gitCommand", action: "push" });
-    }
-
-    forcePush() {
-        this.props.vscode.postMessage({ command: "gitCommand", action: "forcePush" });
+        this.state.commitValidation = "";
+        this.gitAction(amend ? "commitAmend" : "commit", {
+            commitMessage: commitMessage || undefined,
+        });
     }
 
     get versions() {
@@ -135,7 +152,7 @@ export class GitControl extends Component {
                         onChange="(val) => this.state.branchName = val" />
                 </div>
                 <button class="icon-btn primary-btn" t-att-disabled="state.loading"
-                    t-on-click="checkoutBranch" title="Checkout branch">
+                    t-on-click="() => this.gitAction('checkout')" title="Checkout branch">
                     <i class="codicon codicon-check"/>
                 </button>
             </div>
@@ -143,22 +160,43 @@ export class GitControl extends Component {
             <!-- Action buttons — all in one row, short labels -->
             <div class="git-actions-row">
                 <button class="git-action-btn" t-att-disabled="state.loading"
-                    t-on-click="remoteUpdate" title="Fetch all remotes">
+                    t-on-click="() => this.gitAction('remoteUpdate')" title="Fetch all remotes">
                     <i class="codicon codicon-sync"/> Fetch
                 </button>
                 <button class="git-action-btn" t-att-disabled="state.loading"
-                    t-on-click="newBranch" title="Create new branch from current state">
+                    t-on-click="() => this.gitAction('newBranch')" title="Create new branch from current state">
                     <i class="codicon codicon-git-branch"/> Branch
                 </button>
                 <button class="git-action-btn" t-att-disabled="state.loading"
-                    t-on-click="push" title="Push to remote">
+                    t-on-click="() => this.gitAction('push')" title="Push to remote">
                     <i class="codicon codicon-cloud-upload"/> Push
                 </button>
                 <button class="git-action-btn git-action-danger" t-att-disabled="state.loading"
-                    t-on-click="forcePush" title="Force push to remote">
+                    t-on-click="() => this.gitAction('forcePush')" title="Force push to remote">
                     <i class="codicon codicon-warning"/> Force
                 </button>
             </div>
+
+            <Accordion title="'Commit Message'">
+                <textarea
+                    class="commit-msg-input"
+                    t-att-disabled="state.loading"
+                    t-att-value="state.commitMessage"
+                    placeholder="Write commit message..."
+                    t-on-input="(ev) => this.updateCommitMessage(ev.target.value)"
+                />
+                <div t-if="state.commitValidation" class="field-error" t-out="state.commitValidation" />
+                <div class="commit-actions-row">
+                    <button class="git-action-btn" t-att-disabled="state.loading"
+                        t-on-click="() => this.runCommitAction(false)" title="Commit current diff">
+                        <i class="codicon codicon-git-commit"/> Commit
+                    </button>
+                    <button class="git-action-btn " t-att-disabled="state.loading"
+                        t-on-click="() => this.runCommitAction(true)" title="Amend latest commit with current diff">
+                        <i class="codicon codicon-edit"/> Amend
+                    </button>
+                </div>
+            </Accordion>
 
             <!-- Checkout history -->
             <t t-if="versions.length">
@@ -177,12 +215,12 @@ export class GitControl extends Component {
                                     <span class="branch-name" t-out="branch"/>
                                     <div class="history-actions">
                                         <button class="icon-btn" t-att-disabled="state.loading"
-                                            t-on-click="() => this.checkoutHistoryItem(branch)"
+                                            t-on-click="() => this.gitAction('checkout', {branch})"
                                             title="Checkout">
                                             <i class="codicon codicon-check"/>
                                         </button>
                                         <button class="icon-btn danger-btn"
-                                            t-on-click="() => this.removeHistoryItem(version, branch)"
+                                            t-on-click="() => this.gitAction('removeHistory', {version, branch})"
                                             title="Remove from history">
                                             <i class="codicon codicon-trash"/>
                                         </button>
@@ -202,11 +240,20 @@ export class GitControl extends Component {
                             <div class="addon-row" style="grid-template-columns: 1fr auto;">
                                 <Input type="'text'" value="gitPath.path"
                                     placeholder="'/absolute/path/to/repo'"
-                                    onChange="(val) => this.updateGitPath(gitPath.id, val)" />
+                                    onChange="(val) => this.updateGitRepo(gitPath.id, 'path', val)" />
                                 <button class="delete-btn" title="Remove"
                                     t-on-click="() => this.removeGitPath(gitPath.id)">
                                     <i class="codicon codicon-trash"/>
                                 </button>
+                            </div>
+                            <div class="repo-remote">
+                                Remote
+                                <Input type="'text'" value="gitPath.base"
+                                    placeholder="'base remote (odoo)'"
+                                    onChange="(val) => this.updateGitRepo(gitPath.id, 'base', val)" />
+                                <Input type="'text'" value="gitPath.dev"
+                                    placeholder="'dev remote (odoo-dev)'"
+                                    onChange="(val) => this.updateGitRepo(gitPath.id, 'dev', val)" />
                             </div>
                         </t>
                         <button class="add-btn" style="margin-top: 6px;" t-on-click="addGitPath" title="Add repo path">
