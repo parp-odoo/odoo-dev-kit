@@ -12,10 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const sidebarProvider = new SidebarViewProvider(context, context.extensionUri);
 	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(
-			SidebarViewProvider.viewType,
-			sidebarProvider
-		),
+		vscode.window.registerWebviewViewProvider(SidebarViewProvider.viewType, sidebarProvider),
 	);
 	context.subscriptions.push(sidebarProvider);
 }

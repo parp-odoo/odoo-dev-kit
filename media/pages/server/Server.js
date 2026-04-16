@@ -2,14 +2,13 @@ import { Input } from "../../components/input.js";
 import { Accordion } from "../../components/accordion.js";
 import { cliOptions } from "../../utils/cli-options.js";
 import {
-    formatValue,
-    getFirstAddonPath,
-    getValidAddons,
-    getEnabledAddons,
-    getEnabledOptionsList,
-    getRunCommand,
-    validateRunConfiguration,
-    getDropDbCommand,
+	getFirstAddonPath,
+	getValidAddons,
+	getRunCommand,
+	getTestCommand as buildTestCommand,
+	validateRunConfiguration,
+	validateTestConfiguration as validateTestConfig,
+	getDropDbCommand,
 } from "./command-builder.js";
 import { createServerState } from "./state.js";
 import { clonePlainState } from "../../utils/general-utils.js";
@@ -17,283 +16,329 @@ import { clonePlainState } from "../../utils/general-utils.js";
 const { Component, xml, useState, useEffect } = owl;
 
 export class Server extends Component {
-    static components = { Input, Accordion };
+	static components = { Input, Accordion };
 
-    setup() {
-        this._dbRequestId = 0;
-        this._lastAddonPath = "";
-        this.cliOptions = cliOptions;
-        this.vscode = this.props.vscode;
+	setup() {
+		this._dbRequestId = 0;
+		this._lastAddonPath = "";
+		this.cliOptions = cliOptions;
+		this.vscode = this.props.vscode;
 
-        const savedState = this.vscode.getState() || {};
+		const savedState = this.vscode.getState() || {};
 
-        this.state = useState(createServerState(savedState));
+		this.state = useState(createServerState(savedState));
 
-        useEffect(
-            () => {
-                const prev = this.vscode.getState() || {};
-                const next = {
-                    ...prev,
-                    params: this.state.params,
-                    config: this.state.config,
-                };
-                const plain = clonePlainState(next);
-                this.vscode.setState(plain);
-                this.vscode.postMessage({
-                    command: "persistState",
-                    state: plain,
-                });
-            },
-            () => [JSON.stringify(this.state.params), JSON.stringify(this.state.config)]
-        );
+		useEffect(
+			() => {
+				const prev = this.vscode.getState() || {};
+				const next = {
+					...prev,
+					params: this.state.params,
+					config: this.state.config,
+					testing: this.state.testing,
+				};
+				const plain = clonePlainState(next);
+				this.vscode.setState(plain);
+				this.vscode.postMessage({
+					command: "persistState",
+					state: plain,
+				});
+			},
+			() => [
+				JSON.stringify(this.state.params),
+				JSON.stringify(this.state.config),
+				JSON.stringify(this.state.testing),
+			],
+		);
 
-        useEffect(
-            () => {
-                const handler = event => {
-                    const message = event.data;
-                    if (message?.command === "serverStatus") {
-                        this.state.isRunning = !!message.running;
-                    }
-                    if (message?.command === "resolvedDbName") {
-                        if (message.requestId !== this._dbRequestId) {
-                            return;
-                        }
-                        const currentDb = (this.state.params.database || "").trim();
-                        if (currentDb) {
-                            return;
-                        }
-                        if (message.dbName) {
-                            this.state.params.database = message.dbName;
-                        }
-                    }
-                };
-                window.addEventListener("message", handler);
-                return () => window.removeEventListener("message", handler);
-            },
-            () => []
-        );
+		useEffect(
+			() => {
+				const handler = event => {
+					const message = event.data;
+					if (message?.command === "serverStatus") {
+						this.state.isRunning = !!message.running;
+					}
+					if (message?.command === "resolvedDbName") {
+						if (message.requestId !== this._dbRequestId) {
+							return;
+						}
+						this.state.computedDbName = (message.dbName || "").trim();
+					}
+				};
+				window.addEventListener("message", handler);
+				return () => window.removeEventListener("message", handler);
+			},
+			() => [],
+		);
 
-        useEffect(
-            () => {
-                if (this.state.config.autoDetectDbName === false) {
-                    return;
-                }
-                const currentDb = (this.state.params.database || "").trim();
-                if (currentDb) {
-                    return;
-                }
-                const addonPath = this.getFirstAddonPath();
-                if (!addonPath || addonPath === this._lastAddonPath) {
-                    return;
-                }
-                this._lastAddonPath = addonPath;
-                const requestId = ++this._dbRequestId;
-                this.vscode.postMessage({
-                    command: "resolveDbNameFromAddon",
-                    addonPath,
-                    requestId,
-                });
-            },
-            () => [JSON.stringify(this.state.config.addons), (this.state.params.database || "").trim()]
-        );
-    }
+		useEffect(
+			() => {
+				if (this.state.config.autoDetectDbName === false) {
+					return;
+				}
+				const currentDb = (this.state.params.database || "").trim();
+				if (currentDb) {
+					return;
+				}
+				const addonPath = this.getFirstAddonPath();
+				if (!addonPath || addonPath === this._lastAddonPath) {
+					return;
+				}
+				this._lastAddonPath = addonPath;
+				this.state.computedDbName = "";
+				const requestId = ++this._dbRequestId;
+				this.vscode.postMessage({
+					command: "resolveDbNameFromAddon",
+					addonPath,
+					requestId,
+				});
+			},
+			() => [
+				JSON.stringify(this.state.config.addons),
+				(this.state.params.database || "").trim(),
+			],
+		);
+	}
 
-    getFirstAddonPath() {
-        const addons = this.state.config.addons || [];
-        for (const addon of addons) {
-            const path = (addon.path || "").trim();
-            if (path) {
-                return path;
-            }
-        }
-        return getFirstAddonPath(this.state.config.addons || []);
-    }
+	getFirstAddonPath() {
+		const addons = this.state.config.addons || [];
+		for (const addon of addons) {
+			const path = (addon.path || "").trim();
+			if (path) {
+				return path;
+			}
+		}
+		return getFirstAddonPath(this.state.config.addons || []);
+	}
 
-    getEnabledOptions(group) {
-        const enabled = this.state.config.cliOptions?.[group.groupName] || {};
-        return group.options.filter(opt => enabled[opt.name]);
-    }
+	getEnabledOptions(group) {
+		const enabled = this.state.config.cliOptions?.[group.groupName] || {};
+		return group.options.filter(opt => enabled[opt.name]);
+	}
 
-    getValue(option) {
-        return this.state.params[option.name] ?? (option.type === "boolean" ? false : "");
-    }
+	getValue(option) {
+		return this.state.params[option.name] ?? (option.type === "boolean" ? false : "");
+	}
 
-    updateParam(option, value) {
-        this.state.params[option.name] = value;
-    }
+	updateParam(option, value) {
+		this.state.params[option.name] = value;
+	}
 
-    toggleAddonEnabled(addon, value) {
-        const record = this.state.config.addons.find(a => a.id === addon.id);
-        if (record) {
-            record.enabled = !!value;
-        }
-    }
+	toggleAddonEnabled(addon, value) {
+		const record = this.state.config.addons.find(a => a.id === addon.id);
+		if (record) {
+			record.enabled = !!value;
+		}
+	}
 
-    getValidAddons() {
-        return getValidAddons(this.state.config.addons || []);
-    }
+	getValidAddons() {
+		return getValidAddons(this.state.config.addons || []);
+	}
 
-    getRunCommand() {
-        return getRunCommand({
-            cliOptions: this.cliOptions,
-            config: this.state.config,
-            params: this.state.params,
-            runMode: this.state.runMode || "update",
-        });
-    }
+	getRunCommand() {
+		const params = this.getResolvedParams();
+		return getRunCommand({
+			cliOptions: this.cliOptions,
+			config: this.state.config,
+			params,
+			runMode: this.state.runMode || "update",
+		});
+	}
 
-    validateRunConfiguration() {
-        return validateRunConfiguration(this.state.config, this.state.params);
-    }
+	validateRunConfiguration() {
+		return validateRunConfiguration(this.state.config, this.getResolvedParams());
+	}
 
-    getDropDbCommand() {
-        return getDropDbCommand(this.state.params);
-    }
+	getResolvedTestingConfig() {
+		const rawPort = (this.state.testing.port || "").trim();
+		if (rawPort) {
+			return {
+				...this.state.testing,
+				port: rawPort,
+			};
+		}
+		const serverPort = this.state.params["http-port"];
+		return {
+			...this.state.testing,
+			port: serverPort !== undefined && serverPort !== null ? String(serverPort).trim() : "",
+		};
+	}
 
-    async copyRunCommand() {
-        const command = this.getRunCommand();
-        if (!command) {
-            this.vscode.postMessage({
-                command: "showMessage",
-                text: "No command to copy. Configure options first.",
-            });
-            return;
-        }
-        try {
-            if (navigator?.clipboard?.writeText) {
-                await navigator.clipboard.writeText(command);
-            } else {
-                const textarea = document.createElement("textarea");
-                textarea.value = command;
-                textarea.style.position = "fixed";
-                textarea.style.opacity = "0";
-                document.body.appendChild(textarea);
-                textarea.focus();
-                textarea.select();
-                document.execCommand("copy");
-                document.body.removeChild(textarea);
-            }
-            this.vscode.postMessage({
-                command: "showMessage",
-                text: "Run command copied to clipboard.",
-            });
-        } catch {
-            this.vscode.postMessage({
-                command: "showMessage",
-                text: "Failed to copy command.",
-            });
-        }
-    }
+	getTestCommand(testing = this.getResolvedTestingConfig()) {
+		return buildTestCommand({
+			config: this.state.config,
+			params: this.getResolvedParams(),
+			testing,
+		});
+	}
 
-    async runServer() {
-        const validationErrors = this.validateRunConfiguration();
-        if (validationErrors.length) {
-            this.vscode.postMessage({
-                command: "showWarning",
-                text: `Cannot run server: ${validationErrors.join(" ")}`,
-            });
-            return;
-        }
-        this.state.runMode = "update";
-        const command = this.getRunCommand();
-        if (!command) {
-            this.vscode.postMessage({
-                command: "showMessage",
-                text: "No command to run. Configure options first.",
-            });
-            return;
-        }
-        this.vscode.postMessage({
-            command: "runCommand",
-            text: command,
-        });
-        this.state.isRunning = true;
-    }
+	validateTestConfiguration(testing = this.getResolvedTestingConfig()) {
+		return validateTestConfig(this.state.config, this.getResolvedParams(), testing);
+	}
 
-    async dropDbAndRun() {
-        const validationErrors = this.validateRunConfiguration();
-        if (validationErrors.length) {
-            this.vscode.postMessage({
-                command: "showWarning",
-                text: `Cannot run server: ${validationErrors.join(" ")}`,
-            });
-            return;
-        }
-        const dbName = (this.state.params.database || "").trim();
-        if (!dbName) {
-            this.vscode.postMessage({
-                command: "showWarning",
-                text: "Set a database name first.",
-            });
-            return;
-        }
-        this.state.runMode = "init";
-        const runCommand = this.getRunCommand();
-        const dropCommand = this.getDropDbCommand();
-        if (!runCommand || !dropCommand) {
-            this.vscode.postMessage({
-                command: "showMessage",
-                text: "No command to run. Configure options first.",
-            });
-            return;
-        }
-        this.vscode.postMessage({
-            command: "runCommand",
-            text: `${dropCommand} && ${runCommand}`,
-        });
-        this.state.isRunning = true;
-    }
+	getDropDbCommand() {
+		return getDropDbCommand(this.getResolvedParams());
+	}
 
-    async stopServer() {
-        this.vscode.postMessage({
-            command: "stopServer",
-        });
-        this.state.isRunning = false;
-    }
+	updateTestingField(key, value) {
+		this.state.testing[key] = value;
+	}
 
-    async dropDb() {
-        const command = this.getDropDbCommand();
-        const dbName = (this.state.params.database || "").trim();
-        if (!command) {
-            this.vscode.postMessage({
-                command: "showWarning",
-                text: "Set a database name first.",
-            });
-            return;
-        }
-        this.vscode.postMessage({
-            command: "runDropDb",
-            text: command,
-            dbName,
-        });
-    }
+	async copyRunCommand() {
+		const command = this.getRunCommand();
+		if (!command) {
+			this.vscode.postMessage({
+				command: "showMessage",
+				text: "No command to copy. Configure options first.",
+			});
+			return;
+		}
+		try {
+			if (navigator?.clipboard?.writeText) {
+				await navigator.clipboard.writeText(command);
+			} else {
+				const textarea = document.createElement("textarea");
+				textarea.value = command;
+				textarea.style.position = "fixed";
+				textarea.style.opacity = "0";
+				document.body.appendChild(textarea);
+				textarea.focus();
+				textarea.select();
+				document.execCommand("copy");
+				document.body.removeChild(textarea);
+			}
+			this.vscode.postMessage({
+				command: "showMessage",
+				text: "Run command copied to clipboard.",
+			});
+		} catch {
+			this.vscode.postMessage({
+				command: "showMessage",
+				text: "Failed to copy command.",
+			});
+		}
+	}
 
-    hasAnyEnabledCliOption() {
-        const groups = Object.values(this.state.config.cliOptions || {});
-        return groups.some(group =>
-            Object.values(group || {}).some(Boolean)
-        );
-    }
+	async runServer() {
+		const validationErrors = this.validateRunConfiguration();
+		if (validationErrors.length) {
+			this.vscode.postMessage({
+				command: "showWarning",
+				text: `Cannot run server: ${validationErrors.join(" ")}`,
+			});
+			return;
+		}
+		this.state.runMode = "update";
+		const command = this.getRunCommand();
+		if (!command) {
+			this.vscode.postMessage({
+				command: "showMessage",
+				text: "No command to run. Configure options first.",
+			});
+			return;
+		}
+		this.vscode.postMessage({
+			command: "runCommand",
+			text: command,
+		});
+		this.state.isRunning = true;
+	}
 
-    hasConfiguration() {
-        const hasAddons = this.getValidAddons().length > 0;
-        const hasCli = this.hasAnyEnabledCliOption();
-        const hasEnv = (this.state.config.pythonVenv || "").trim() !== "" ||
-            (this.state.config.odooBinPath || "").trim() !== "";
-        return hasAddons || hasCli || hasEnv;
-    }
+	async stopServer() {
+		this.vscode.postMessage({
+			command: "stopServer",
+		});
+		this.state.isRunning = false;
+	}
 
-    getInputTypeForOption(option) {
-        const inputOptionTypeMap = {
-            boolean: "checkbox",
-            text: "text",
-            number: "text",
-            list: "text",
-        };
-        return inputOptionTypeMap[option.type] || "text";
-    }
+	async dropDb() {
+		const command = this.getDropDbCommand();
+		const dbName = (this.getResolvedParams().database || "").trim();
+		if (!command) {
+			this.vscode.postMessage({
+				command: "showWarning",
+				text: "Set a database name first.",
+			});
+			return;
+		}
+		this.vscode.postMessage({
+			command: "runDropDb",
+			text: command,
+			dbName,
+		});
+	}
 
-    static template = xml`
+	async runTests() {
+		const testing = this.getResolvedTestingConfig();
+		const validationErrors = this.validateTestConfiguration(testing);
+		if (validationErrors.length) {
+			this.vscode.postMessage({
+				command: "showWarning",
+				text: `Cannot run tests: ${validationErrors.join(" ")}`,
+			});
+			return;
+		}
+
+		const command = this.getTestCommand(testing);
+		if (!command) {
+			this.vscode.postMessage({
+				command: "showWarning",
+				text: "No test command to run. Configure test options first.",
+			});
+			return;
+		}
+
+		this.vscode.postMessage({
+			command: "runTestCommand",
+			text: command,
+		});
+	}
+
+	hasAnyEnabledCliOption() {
+		const groups = Object.values(this.state.config.cliOptions || {});
+		return groups.some(group => Object.values(group || {}).some(Boolean));
+	}
+
+	hasConfiguration() {
+		const hasAddons = this.getValidAddons().length > 0;
+		const hasCli = this.hasAnyEnabledCliOption();
+		const hasEnv =
+			(this.state.config.pythonVenv || "").trim() !== "" ||
+			(this.state.config.odooBinPath || "").trim() !== "";
+		return hasAddons || hasCli || hasEnv;
+	}
+
+	getInputTypeForOption(option) {
+		const inputOptionTypeMap = {
+			boolean: "checkbox",
+			text: "text",
+			number: "text",
+			list: "text",
+		};
+		return inputOptionTypeMap[option.type] || "text";
+	}
+
+	getResolvedParams() {
+		const params = {
+			...(this.state.params || {}),
+		};
+		const database = (params.database || "").trim();
+		const computedDbName = (this.state.computedDbName || "").trim();
+		if (!database && computedDbName) {
+			params.database = computedDbName;
+		}
+		return params;
+	}
+
+	getOptionPlaceholder(option) {
+		const computedDbName = (this.state.computedDbName || "").trim();
+		if (option.name === "database" && computedDbName) {
+			return computedDbName;
+		}
+		return option.name;
+	}
+
+	static template = xml`
         <div class="server-container">
             <div class="main-title">Server Parameters</div>
 
@@ -302,8 +347,8 @@ export class Server extends Component {
                 <button class="icon-btn primary-btn" t-on-click="runServer" title="Run server">
                     <i class="codicon codicon-debug-start"/>
                 </button>
-                <button class="icon-btn danger-btn" t-on-click="dropDbAndRun" title="Drop DB and run server">
-                    <i class="codicon codicon-debug-restart"/>
+                <button class="icon-btn danger-btn" t-on-click="dropDb" title="Drop database">
+                    <i class="codicon codicon-trash"/>
                 </button>
                 <div class="action-right">
                     <button
@@ -348,45 +393,66 @@ export class Server extends Component {
                 <t t-set="options" t-value="this.getEnabledOptions(group)" />
 
                 <div t-if="options.length" class="cli-group">
-                    <div class="section-title" t-out="group.groupName"/>
+                    <Accordion title="group.groupName">
+                        <div class="options-list">
+                            <div
+                                t-foreach="options"
+                                t-as="option"
+                                t-key="option.name"
+                                class="option-row"
+                                t-att-title="option.description"
+                            >
+                                <div class="cli-key">
+                                    <span t-out="option.key"/>
+                                </div>
 
-                    <div class="options-list">
-                        <div
-                            t-foreach="options"
-                            t-as="option"
-                            t-key="option.name"
-                            class="option-row"
-                            t-att-title="option.description"
-                        >
-                            <div class="cli-key">
-                                <span t-out="option.key"/>
+                                <div class="cli-input">
+                                    <Input
+                                        type="getInputTypeForOption(option)"
+                                        value="this.getValue(option)"
+                                        placeholder="this.getOptionPlaceholder(option)"
+                                        onChange="(val) => this.updateParam(option, val)"
+                                    />
+                                </div>
                             </div>
-
-                            <div class="cli-input">
-                                <Input
-                                    type="getInputTypeForOption(option)"
-                                    value="this.getValue(option)"
-                                    placeholder="option.name"
-                                    onChange="(val) => this.updateParam(option, val)"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </t>
-
-            <t t-if="this.hasConfiguration()">
-                <div class="run-command-section">
-                    <Accordion title="'Run Command'">
-                        <div class="command-wrap">
-                            <pre class="command-box" t-out="this.getRunCommand()"/>
-                            <button class="copy-btn" t-on-click="copyRunCommand" title="Copy command">
-                                <i class="codicon codicon-copy"/>
-                            </button>
                         </div>
                     </Accordion>
                 </div>
             </t>
+
+            <div class="test-command-section">
+                <div class="main-title test-title">
+                    <span>Testing</span>    
+                    <button class="test-run-btn" t-on-click="runTests" title="Run tests in a separate terminal">
+                        <i class="codicon codicon-beaker"/>
+                        <span>Run Test</span>
+                    </button>   
+                </div>
+                <div class="options-list">
+                    <div class="option-row">
+                        <div class="cli-key">Test Tags</div>
+                        <div class="cli-input">
+                            <Input
+                                type="'text'"
+                                value="state.testing.testTags"
+                                placeholder="'.test_customer_display_online_payment'"
+                                onChange="(val) => this.updateTestingField('testTags', val)"
+                            />
+                        </div>
+                    </div>
+                    <div class="option-row">
+                        <div class="cli-key">Port</div>
+                        <div class="cli-input">
+                            <Input
+                                type="'text'"
+                                value="state.testing.port"
+                                placeholder="'8021'"
+                                onChange="(val) => this.updateTestingField('port', val)"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }

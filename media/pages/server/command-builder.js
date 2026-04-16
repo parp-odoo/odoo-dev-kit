@@ -103,6 +103,17 @@ export function getRunCommand({ cliOptions, config, params, runMode }) {
     ].join(" ");
 }
 
+export function getResolvedAddonsPath(config, params) {
+    const addonsParam = (params["addons-path"] || "").trim();
+    if (addonsParam) {
+        return addonsParam;
+    }
+    const paths = getEnabledAddons(config.addons || [])
+        .map(addon => (addon.path || "").trim())
+        .filter(Boolean);
+    return paths.join(",");
+}
+
 export function validateRunConfiguration(config, params) {
     const errors = [];
     const enabledAddons = getEnabledAddons(config.addons || []);
@@ -129,6 +140,58 @@ export function validateRunConfiguration(config, params) {
 
     if (addonsParam && addonsParam.length < 3) {
         errors.push("--addons-path looks too short.");
+    }
+
+    return errors;
+}
+
+export function getTestCommand({ config, params, testing }) {
+    const args = [];
+    const addonsPath = getResolvedAddonsPath(config, params);
+    const dbName = (params.database || "").trim();
+    const testTags = (testing.testTags || "").trim();
+    const port = (testing.port || "").trim();
+
+    if (addonsPath) {
+        args.push("--addons-path", formatValue(addonsPath));
+    }
+    if (dbName) {
+        args.push("-d", formatValue(dbName));
+    }
+    if (port) {
+        args.push("-p", formatValue(port));
+    }
+    args.push("--test-enable");
+    if (testTags) {
+        args.push("--test-tags", formatValue(testTags));
+    }
+
+    return [
+        ...getBaseCommandParts(config),
+        ...args,
+    ].join(" ");
+}
+
+export function validateTestConfiguration(config, params, testing) {
+    const errors = [];
+    const addonsPath = getResolvedAddonsPath(config, params);
+    const dbName = (params.database || "").trim();
+    const testTags = (testing.testTags || "").trim();
+    const port = (testing.port || "").trim();
+
+    if (!addonsPath) {
+        errors.push("Add at least one enabled addon path or set --addons-path.");
+    }
+    if (!dbName) {
+        errors.push("Set a database name (-d) before running tests.");
+    }
+    if (!port) {
+        errors.push("Set a test port (-p).");
+    } else if (!/^\d+$/.test(port)) {
+        errors.push("Test port must be numeric.");
+    }
+    if (!testTags) {
+        errors.push("Set test tags (--test-tags).");
     }
 
     return errors;

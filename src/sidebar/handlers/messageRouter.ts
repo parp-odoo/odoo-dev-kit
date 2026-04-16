@@ -13,6 +13,7 @@ export function createMessageRouter(ctx: {
 
 			runShellCommand: () => ctx.terminalHandler.runShell(message.text),
 			runCommand: () => ctx.terminalHandler.runCommand(message.text),
+			runTestCommand: () => ctx.terminalHandler.runTestCommand(message.text),
 			stopServer: () => ctx.terminalHandler.stop(),
 
 			runDropDb: () => ctx.dbHandler.dropDb(message),

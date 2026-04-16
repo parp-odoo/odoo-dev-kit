@@ -1,25 +1,30 @@
 import * as vscode from "vscode";
 
+type TerminalKind = "server" | "test";
+
 export class TerminalService {
-	private terminal?: vscode.Terminal;
-	private hasShown = false;
+	private terminals: Partial<Record<TerminalKind, vscode.Terminal>> = {};
+	private hasShown: Partial<Record<TerminalKind, boolean>> = {};
 
-	get(show = false) {
-		if (!this.terminal) {
-			this.terminal = vscode.window.createTerminal({ name: "Odoo Dev Kit" });
+	get(show = false, kind: TerminalKind = "server") {
+		let terminal = this.terminals[kind];
+		if (!terminal) {
+			const name = kind === "test" ? "Odoo Dev Kit - Tests" : "Odoo Dev Kit - Server";
+			terminal = vscode.window.createTerminal({ name });
+			this.terminals[kind] = terminal;
 		}
-		if (show && !this.hasShown) {
-			this.terminal.show();
-			this.hasShown = true;
+		if (show && !this.hasShown[kind]) {
+			terminal.show();
+			this.hasShown[kind] = true;
 		}
-		return this.terminal;
+		return terminal;
 	}
 
-	send(cmd: string) {
-		this.get().sendText(`${cmd}\n`);
+	send(cmd: string, kind: TerminalKind = "server") {
+		this.get(false, kind).sendText(`${cmd}\n`);
 	}
 
-	stop() {
-		this.terminal?.sendText("\u0003");
+	stop(kind: TerminalKind = "server") {
+		this.terminals[kind]?.sendText("\u0003");
 	}
 }

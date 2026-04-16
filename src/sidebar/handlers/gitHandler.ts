@@ -10,11 +10,10 @@ import {
 } from "../../utils/git";
 import { Repo } from "../../types";
 
-
 const ACTION_WARNINGS: Record<string, string> = {
-	"newBranch": "No repositories had changes to create a new branch",
-	"commit": "No changes detected in configured repositories. Nothing to commit.",
-	"commitAmend": "No changes detected in configured repositories. Nothing to amend.",
+	newBranch: "No repositories had changes to create a new branch",
+	commit: "No changes detected in configured repositories. Nothing to commit.",
+	commitAmend: "No changes detected in configured repositories. Nothing to amend.",
 };
 
 export class GitHandler {
@@ -52,8 +51,7 @@ export class GitHandler {
 		}
 
 		const gitPaths = [...state.gitPaths];
-		return gitPaths
-			.filter((gp: any) => gp.path && gp.path.trim());
+		return gitPaths.filter((gp: any) => gp.path && gp.path.trim());
 	}
 
 	async handle(message: any) {
@@ -72,7 +70,7 @@ export class GitHandler {
 			);
 		}
 
-		const isCommitActions = ["commit", "commitAmend"].includes(action);
+		const isCommitActions = action === "commit";
 		if (isCommitActions && !commitMessage) {
 			return vscode.window.showWarningMessage("Commit message is required.");
 		}
@@ -114,7 +112,9 @@ export class GitHandler {
 			const actionResults = await Promise.all(actions);
 
 			if (ACTION_WARNINGS[action] && actionResults.every(result => result === false)) {
-				return vscode.window.showWarningMessage(ACTION_WARNINGS[action] || "Action failed.");
+				return vscode.window.showWarningMessage(
+					ACTION_WARNINGS[action] || "Action failed.",
+				);
 			}
 
 			if (isBranchActions) {
@@ -136,9 +136,7 @@ export class GitHandler {
 		if (!state?.gitHistory[version]) {
 			return;
 		}
-		state.gitHistory[version] = state.gitHistory[version].filter(
-			(b: string) => b !== branch,
-		);
+		state.gitHistory[version] = state.gitHistory[version].filter((b: string) => b !== branch);
 		if (state.gitHistory[version].length === 0) {
 			delete state.gitHistory[version];
 		}
@@ -148,5 +146,4 @@ export class GitHandler {
 			state: state,
 		});
 	}
-
 }

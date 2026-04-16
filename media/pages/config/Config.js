@@ -2,80 +2,77 @@ import { Accordion } from "../../components/accordion.js";
 import { Input } from "../../components/input.js";
 import { cliOptions } from "../../utils/cli-options.js";
 import { clonePlainState } from "../../utils/general-utils.js";
-import {
-    getInitialConfigState,
-    countActiveOptions,
-} from "./state.js";
+import { getInitialConfigState, countActiveOptions } from "./state.js";
 
 const { Component, xml, useState, useEffect } = owl;
 
 export class Config extends Component {
-    static components = { Accordion, Input };
+	static components = { Accordion, Input };
 
-    setup() {
-        this.cliOptions = cliOptions;
+	setup() {
+		this.cliOptions = cliOptions;
 
-        const savedState = this.props.vscode.getState();
+		const savedState = this.props.vscode.getState();
 
-        this.state = useState({
-            config: getInitialConfigState(savedState),
-        });
+		this.state = useState({
+			config: getInitialConfigState(savedState),
+		});
 
-        useEffect(
-            () => {
-                const prev = this.props.vscode.getState() || {};
-                const next = {
-                    ...prev,
-                    config: this.state.config,
-                };
-                const plain = clonePlainState(next);
-                this.props.vscode.setState(plain);
-                this.props.vscode.postMessage({
-                    command: "persistState",
-                    state: plain,
-                });
-            },
-            () => [JSON.stringify(this.state.config)]
-        );
-    }
+		useEffect(
+			() => {
+				const prev = this.props.vscode.getState() || {};
+				const next = {
+					...prev,
+					config: this.state.config,
+				};
+				const plain = clonePlainState(next);
+				this.props.vscode.setState(plain);
+				this.props.vscode.postMessage({
+					command: "persistState",
+					state: plain,
+				});
+			},
+			() => [JSON.stringify(this.state.config)],
+		);
+	}
 
-    addPath() {
-        this.state.config.addons.push({
-            id: Date.now(),
-            name: "",
-            path: "",
-            enabled: true,
-        });
-    }
+	addPath() {
+		this.state.config.addons.push({
+			id: Date.now(),
+			name: "",
+			path: "",
+			enabled: true,
+		});
+	}
 
-    removePath(id) {
-        this.state.config.addons = this.state.config.addons.filter(a => a.id !== id);
-    }
+	removePath(id) {
+		this.state.config.addons = this.state.config.addons.filter(a => a.id !== id);
+	}
 
-    updateAddon(id, field, value) {
-        const record = this.state.config.addons.find(a => a.id === id);
-        if (record) {
-            record[field] = value;
-        }
-    }
+	updateAddon(id, field, value) {
+		const record = this.state.config.addons.find(a => a.id === id);
+		if (record) {
+			record[field] = value;
+		}
+	}
 
-    toggleCliOption(group, option, value) {
-        const groupName = group.groupName;
+	toggleCliOption(group, option, value) {
+		const groupName = group.groupName;
 
-        this.state.config.cliOptions = {
-            ...this.state.config.cliOptions,
-            [groupName]: {
-                ...(this.state.config.cliOptions[groupName] || {}),
-                [option.name]: value,
-            },
-        };
-    }
+		this.state.config.cliOptions = {
+			...this.state.config.cliOptions,
+			[groupName]: {
+				...(this.state.config.cliOptions[groupName] || {}),
+				[option.name]: value,
+			},
+		};
+	}
 
-    getCountStatus(groupName) {
-        return countActiveOptions(this.cliOptions, this.state.config.cliOptions, groupName);
-    }
+	getCountStatus(groupName) {
+		return countActiveOptions(this.cliOptions, this.state.config.cliOptions, groupName);
+	}
 
-    static template = xml`
+	static template = xml`
         <div class="config-container">
             <div class="main-title">Server Configuration</div>
 

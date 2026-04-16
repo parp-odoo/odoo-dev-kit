@@ -6,135 +6,142 @@ import { clonePlainState } from "../../utils/general-utils.js";
 const { Component, xml, useState, useEffect } = owl;
 
 export class GitControl extends Component {
-    static components = { Input, Accordion };
+	static components = { Input, Accordion };
 
-    setup() {
-        this.vscode = this.props.vscode;
-        const savedState = this.vscode.getState() || {};
+	setup() {
+		this.vscode = this.props.vscode;
+		const savedState = this.vscode.getState() || {};
 
-        this.state = useState(createGitControlState(savedState));
+		this.state = useState(createGitControlState(savedState));
 
-        useEffect(
-            () => {
-                const prev = this.props.vscode.getState() || {};
-                const next = {
-                    ...prev,
-                    gitHistory: this.state.history,
-                    gitPaths: this.state.gitPaths,
-                    gitCommitMessage: this.state.commitMessage,
-                };
-                const plain = clonePlainState(next);
-                this.props.vscode.setState(plain);
-                this.props.vscode.postMessage({
-                    command: "persistState",
-                    state: plain,
-                });
-            },
-            () => [JSON.stringify(this.state.history), JSON.stringify(this.state.gitPaths), this.state.commitMessage]
-        );
+		useEffect(
+			() => {
+				const prev = this.props.vscode.getState() || {};
+				const next = {
+					...prev,
+					gitHistory: this.state.history,
+					gitPaths: this.state.gitPaths,
+					gitCommitMessage: this.state.commitMessage,
+				};
+				const plain = clonePlainState(next);
+				this.props.vscode.setState(plain);
+				this.props.vscode.postMessage({
+					command: "persistState",
+					state: plain,
+				});
+			},
+			() => [
+				JSON.stringify(this.state.history),
+				JSON.stringify(this.state.gitPaths),
+				this.state.commitMessage,
+			],
+		);
 
-        useEffect(
-            () => {
-                const handler = event => {
-                    const message = event.data;
-                    if (!message) {
-                        return;
-                    }
-                    const {command, state} = message;
-                    if (command === "restoreState" && state) {
-                        if (state.gitHistory) {
-                            this.state.history = state.gitHistory;
-                        }
-                        if (typeof state.gitCommitMessage === "string") {
-                            this.state.commitMessage = state.gitCommitMessage;
-                        }
-                        if (message.clearBranchInput) {
-                            this.state.branchName = "";
-                        }
-                    }
-                    if (command === "gitOperationStart") {
-                        this.state.loading = true;
-                    }
-                    if (command === "gitOperationEnd") {
-                        this.state.loading = false;
-                    }
-                };
-                window.addEventListener("message", handler);
-                return () => window.removeEventListener("message", handler);
-            },
-            () => []
-        );
-    }
+		useEffect(
+			() => {
+				const handler = event => {
+					const message = event.data;
+					if (!message) {
+						return;
+					}
+					const { command, state } = message;
+					if (command === "restoreState" && state) {
+						if (state.gitHistory) {
+							this.state.history = state.gitHistory;
+						}
+						if (typeof state.gitCommitMessage === "string") {
+							this.state.commitMessage = state.gitCommitMessage;
+						}
+						if (message.clearBranchInput) {
+							this.state.branchName = "";
+						}
+					}
+					if (command === "gitOperationStart") {
+						this.state.loading = true;
+					}
+					if (command === "gitOperationEnd") {
+						this.state.loading = false;
+					}
+				};
+				window.addEventListener("message", handler);
+				return () => window.removeEventListener("message", handler);
+			},
+			() => [],
+		);
+	}
 
-    addGitPath() {
-        this.state.gitPaths.push({ id: Date.now(), path: "", base: "", dev: "" });
-    }
+	addGitPath() {
+		this.state.gitPaths.push({ id: Date.now(), path: "", base: "", dev: "" });
+	}
 
-    removeGitPath(id) {
-        this.state.gitPaths = this.state.gitPaths.filter(p => p.id !== id);
-    }
+	removeGitPath(id) {
+		this.state.gitPaths = this.state.gitPaths.filter(p => p.id !== id);
+	}
 
-    updateGitRepo(id, keyName, val) {
-        const record = this.state.gitPaths.find(p => p.id === id);
-        if (record) {
-            record[keyName] = val;
-        }
-    }
+	updateGitRepo(id, keyName, val) {
+		const record = this.state.gitPaths.find(p => p.id === id);
+		if (record) {
+			record[keyName] = val;
+		}
+	}
 
-    updateCommitMessage(value) {
-        this.state.commitMessage = value;
-        if (this.state.commitValidation) {
-            this.state.commitValidation = "";
-        }
-    }
+	updateCommitMessage(value) {
+		this.state.commitMessage = value;
+		if (this.state.commitValidation) {
+			this.state.commitValidation = "";
+		}
+	}
 
-    gitAction(action, opts = {}) {
-        const message = {
-            command: "gitCommand",
-            action,
-            ...opts
-        };
-        if (action === "removeHistory") {
-            const {version, branch} = opts;
-            removeHistoryEntry(this.state.history, version, branch);
-        }
-        if (action === "newBranch" || (action === "checkout" && !opts.branch)) {
-            const branch = (this.state.branchName || "").trim();
-            if (!branch) {
-                this.vscode.postMessage({ command: "showWarning", text: "Please enter a branch name." });
-                return;
-            }
-            message.branch = branch;
-        }
-        this.vscode.postMessage(message);
-    }
+	gitAction(action, opts = {}) {
+		const message = {
+			command: "gitCommand",
+			action,
+			...opts,
+		};
+		if (action === "removeHistory") {
+			const { version, branch } = opts;
+			removeHistoryEntry(this.state.history, version, branch);
+		}
+		if (action === "newBranch" || (action === "checkout" && !opts.branch)) {
+			const branch = (this.state.branchName || "").trim();
+			if (!branch) {
+				this.vscode.postMessage({
+					command: "showWarning",
+					text: "Please enter a branch name.",
+				});
+				return;
+			}
+			message.branch = branch;
+		}
+		this.vscode.postMessage(message);
+	}
 
-    runCommitAction(amend = false) {
-        const commitMessage = (this.state.commitMessage || "").trim();
-        if (!amend && !commitMessage) {
-            this.state.commitValidation = "Commit message is required.";
-            this.vscode.postMessage({
-                command: "showWarning",
-                text: "Please enter a commit message.",
-            });
-            return;
-        }
+	runCommitAction(amend = false) {
+		const commitMessage = (this.state.commitMessage || "").trim();
+		if (!amend && !commitMessage) {
+			this.state.commitValidation = "Commit message is required.";
+			this.vscode.postMessage({
+				command: "showWarning",
+				text: "Please enter a commit message.",
+			});
+			return;
+		}
 
-        this.state.commitValidation = "";
-        this.gitAction(amend ? "commitAmend" : "commit", {
-            commitMessage: commitMessage || undefined,
-        });
-    }
+		this.state.commitValidation = "";
+		this.gitAction(amend ? "commitAmend" : "commit", {
+			commitMessage: commitMessage || undefined,
+		});
+	}
 
-    get versions() {
-        return Object.keys(this.state.history).sort().reverse();
-    }
+	get versions() {
+		return Object.keys(this.state.history).sort().reverse();
+	}
 
-    get repoCount() {
-        return this.state.gitPaths.filter(p => p.path.trim()).length;
-    }
+	get repoCount() {
+		return this.state.gitPaths.filter(p => p.path.trim()).length;
+	}
 
-    static template = xml`
+	static template = xml`
         <div class="git-container">
             <!-- Loading bar -->
             <div t-if="state.loading" class="git-loading-bar">
