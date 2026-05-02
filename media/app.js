@@ -11,17 +11,31 @@ class App extends Component {
 	static components = { Server, Config, GitControl };
 	static template = xml`
         <div class="page-list">
-            <t t-foreach="pages" t-as="page" t-key="page.name">
-                <t t-set="active" t-value="page.name === state.activePage" />
-                <div
-                    t-attf-class="page-btn {{active ? 'active' : ''}}"
-                    t-on-click="() => this.selectPage(page)"
-                    t-att-title="page.title"
-                >
-                    <i t-attf-class="codicon {{page.icon}}"/>
-                    <span t-out="page.name"/>
-                </div>
-            </t>
+            <div class="page-list-main">
+                <t t-foreach="mainPages" t-as="page" t-key="page.name">
+                    <t t-set="active" t-value="page.name === state.activePage" />
+                    <div
+                        t-attf-class="page-btn {{active ? 'active' : ''}}"
+                        t-on-click="() => this.selectPage(page)"
+                        t-att-title="page.title"
+                    >
+                        <i t-attf-class="codicon {{page.icon}}"/>
+                        <span t-out="page.name"/>
+                    </div>
+                </t>
+            </div>
+            <div class="page-list-side">
+                <t t-foreach="sidePages" t-as="page" t-key="page.name">
+                    <t t-set="active" t-value="page.name === state.activePage" />
+                    <div
+                        t-attf-class="page-btn page-btn-icon-only {{active ? 'active' : ''}}"
+                        t-on-click="() => this.selectPage(page)"
+                        t-att-title="page.title"
+                    >
+                        <i t-attf-class="codicon {{page.icon}}"/>
+                    </div>
+                </t>
+            </div>
         </div>
         <t t-component="activeComponent" vscode="vscode" />
     `;
@@ -61,6 +75,7 @@ class App extends Component {
 				name: "Config",
 				title: "Update Configurations",
 				icon: "codicon-settings",
+				iconOnly: true,
 				component: Config,
 			},
 			{
@@ -70,6 +85,14 @@ class App extends Component {
 				component: GitControl,
 			},
 		];
+	}
+
+	get mainPages() {
+		return this.pages.filter(page => !page.iconOnly);
+	}
+
+	get sidePages() {
+		return this.pages.filter(page => page.iconOnly);
 	}
 
 	get activeComponent() {

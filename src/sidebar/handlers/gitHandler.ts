@@ -7,6 +7,7 @@ import {
 	pushBranch,
 	commitChanges,
 	amendCommit,
+	getCurrentBranchName,
 } from "../../utils/git";
 import { Repo } from "../../types";
 
@@ -52,6 +53,30 @@ export class GitHandler {
 
 		const gitPaths = [...state.gitPaths];
 		return gitPaths.filter((gp: any) => gp.path && gp.path.trim());
+	}
+
+	async resolveCurrentBranch() {
+		const repos = await this.getRepos();
+		if (!repos.length) {
+			this.webview.postMessage({
+				command: "resolvedCurrentBranch",
+				branch: "",
+			});
+			return;
+		}
+
+		try {
+			const branch = await getCurrentBranchName(repos[0].path);
+			this.webview.postMessage({
+				command: "resolvedCurrentBranch",
+				branch,
+			});
+		} catch {
+			this.webview.postMessage({
+				command: "resolvedCurrentBranch",
+				branch: "",
+			});
+		}
 	}
 
 	async handle(message: any) {

@@ -1,6 +1,6 @@
 import { Input } from "../../components/input.js";
 import { Accordion } from "../../components/accordion.js";
-import { createGitControlState, removeHistoryEntry } from "./state.js";
+import { createGitControlState, removeHistoryEntry, sortHistoryVersions } from "./state.js";
 import { clonePlainState } from "../../utils/general-utils.js";
 
 const { Component, xml, useState, useEffect } = owl;
@@ -61,12 +61,23 @@ export class GitControl extends Component {
 					}
 					if (command === "gitOperationEnd") {
 						this.state.loading = false;
+						this.requestCurrentBranch();
+					}
+					if (command === "resolvedCurrentBranch") {
+						this.state.currentBranch = (message.branch || "").trim();
 					}
 				};
 				window.addEventListener("message", handler);
 				return () => window.removeEventListener("message", handler);
 			},
 			() => [],
+		);
+
+		useEffect(
+			() => {
+				this.requestCurrentBranch();
+			},
+			() => [JSON.stringify(this.state.gitPaths)],
 		);
 	}
 
@@ -90,6 +101,12 @@ export class GitControl extends Component {
 		if (this.state.commitValidation) {
 			this.state.commitValidation = "";
 		}
+	}
+
+	requestCurrentBranch() {
+		this.vscode.postMessage({
+			command: "resolveCurrentBranch",
+		});
 	}
 
 	gitAction(action, opts = {}) {
@@ -134,7 +151,7 @@ export class GitControl extends Component {
 	}
 
 	get versions() {
-		return Object.keys(this.state.history).sort().reverse();
+		return sortHistoryVersions(Object.keys(this.state.history));
 	}
 
 	get repoCount() {
@@ -151,7 +168,16 @@ export class GitControl extends Component {
             <div class="main-title">Git Control</div>
 
             <!-- Checkout input -->
-            <div class="section-title">Checkout Branch</div>
+            <div class="section-title">
+                <div class="section-title-label">
+                    <span>checkout</span>
+                    <span
+						t-if="state.currentBranch"
+						class="section-title-meta"
+						t-out="state.currentBranch"
+					/>
+                </div>
+            </div>
             <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                 <div style="flex-grow: 1;">
                     <Input type="'text'" value="state.branchName"

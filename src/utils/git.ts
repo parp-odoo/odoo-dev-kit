@@ -43,6 +43,11 @@ function execGitCommand(args: string[], cwd: string): Promise<{ stdout: string; 
 	});
 }
 
+export async function getCurrentBranchName(repoPath: string): Promise<string> {
+	const { stdout } = await execGitCommand(["rev-parse", "--abbrev-ref", "HEAD"], repoPath);
+	return (stdout || "").trim();
+}
+
 /**
  * List all remote names for a repo, e.g. ["origin", "odoo", "odoo-dev", "ent"]
  */
@@ -155,8 +160,7 @@ export async function createNewBranch(
 export async function pushBranch(repo: Repo, force: boolean = false): Promise<void> {
 	const { path, dev, base } = repo;
 	try {
-		const { stdout } = await execCommand("git rev-parse --abbrev-ref HEAD", path);
-		const currentBranch = stdout.trim();
+		const currentBranch = await getCurrentBranchName(path);
 		const version = getVersionFromBranch(currentBranch);
 		const forceFlag = force ? "-f" : "";
 		if (currentBranch === version) {

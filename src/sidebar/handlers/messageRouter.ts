@@ -18,6 +18,7 @@ export function createMessageRouter(ctx: {
 
 			runDropDb: () => ctx.dbHandler.dropDb(message),
 			resolveDbNameFromAddon: () => ctx.dbHandler.resolveDb(message),
+			resolveCurrentBranch: () => ctx.gitHandler.resolveCurrentBranch(),
 
 			persistState: () => ctx.stateHandler.persist(message.state),
 			requestState: () => ctx.stateHandler.restore(),

@@ -113,7 +113,7 @@ export class Server extends Component {
 
 	getEnabledOptions(group) {
 		const enabled = this.state.config.cliOptions?.[group.groupName] || {};
-		return group.options.filter(opt => enabled[opt.name]);
+		return group.options.filter(opt => enabled[opt.name] && opt.name !== "database");
 	}
 
 	getValue(option) {
@@ -122,6 +122,10 @@ export class Server extends Component {
 
 	updateParam(option, value) {
 		this.state.params[option.name] = value;
+	}
+
+	updateDatabase(value) {
+		this.state.params.database = value;
 	}
 
 	toggleAddonEnabled(addon, value) {
@@ -133,6 +137,11 @@ export class Server extends Component {
 
 	getValidAddons() {
 		return getValidAddons(this.state.config.addons || []);
+	}
+
+	shouldShowDatabaseField() {
+		const serverOptions = this.state.config.cliOptions?.Server || {};
+		return !!serverOptions.database || !!(this.state.params.database || "").trim() || !!(this.state.computedDbName || "").trim();
 	}
 
 	getRunCommand() {
@@ -338,6 +347,10 @@ export class Server extends Component {
 		return option.name;
 	}
 
+	getDatabasePlaceholder() {
+		return this.getOptionPlaceholder({ name: "database" });
+	}
+
 	static template = xml`
         <div class="server-container">
             <div class="main-title">Server Parameters</div>
@@ -389,11 +402,31 @@ export class Server extends Component {
                 </div>
             </t>
 
+            <t t-if="this.shouldShowDatabaseField()">
+                <div class="section-title">Database</div>
+                <div class="options-list">
+                    <div class="option-row" title="Database(s) used when installing or updating modules.">
+                        <div class="cli-key">-d</div>
+                        <div class="cli-input">
+                            <Input
+                                type="'text'"
+                                value="state.params.database || ''"
+                                placeholder="this.getDatabasePlaceholder()"
+                                onChange="(val) => this.updateDatabase(val)"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </t>
+
             <t t-foreach="cliOptions" t-as="group" t-key="group.groupName">
                 <t t-set="options" t-value="this.getEnabledOptions(group)" />
 
                 <div t-if="options.length" class="cli-group">
-                    <Accordion title="group.groupName">
+                    <Accordion
+						title="group.groupName"
+						info="' (' + options.length + ')'"
+					>
                         <div class="options-list">
                             <div
                                 t-foreach="options"
@@ -435,7 +468,7 @@ export class Server extends Component {
                             <Input
                                 type="'text'"
                                 value="state.testing.testTags"
-                                placeholder="'.test_customer_display_online_payment'"
+                                placeholder="'.test_fix_was_faster'"
                                 onChange="(val) => this.updateTestingField('testTags', val)"
                             />
                         </div>

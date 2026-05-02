@@ -86,8 +86,17 @@ textarea::placeholder {
 /* Page Nav */
 .page-list {
 	display: flex;
-	gap: 4px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
 	padding: 6px 0;
+}
+
+.page-list-main,
+.page-list-side {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .page-btn {
@@ -108,6 +117,12 @@ textarea::placeholder {
 
 .page-btn:hover {
 	background: var(--vscode-list-hoverBackground);
+}
+
+.page-btn-icon-only {
+	justify-content: center;
+	padding: 6px;
+	min-width: 30px;
 }
 
 /* Input Component */
@@ -198,6 +213,20 @@ textarea::placeholder {
 	margin-top: 16px;
 	font-size: 13px;
 	font-weight: 600;
+}
+
+.section-title-label {
+	display: flex;
+	align-items: baseline;
+    justify-content: space-between;
+	gap: 6px;
+    width: 100%;
+}
+
+.section-title-meta {
+	font-size: 12px;
+	font-weight: 400;
+	color: var(--vscode-descriptionForeground);
 }
 
 /* Small Add Button */
