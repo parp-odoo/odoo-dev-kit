@@ -200,13 +200,9 @@ export class GitControl extends Component {
                     t-on-click="() => this.gitAction('newBranch')" title="Create new branch from current state">
                     <i class="codicon codicon-git-branch"/> Branch
                 </button>
-                <button class="git-action-btn" t-att-disabled="state.loading"
-                    t-on-click="() => this.gitAction('push')" title="Push to remote">
-                    <i class="codicon codicon-cloud-upload"/> Push
-                </button>
                 <button class="git-action-btn git-action-danger" t-att-disabled="state.loading"
                     t-on-click="() => this.gitAction('forcePush')" title="Force push to remote">
-                    <i class="codicon codicon-warning"/> Force
+                    <i class="codicon codicon-cloud-upload"/> Force Push
                 </button>
             </div>
 

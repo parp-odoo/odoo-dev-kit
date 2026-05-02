@@ -3,6 +3,9 @@
 	--input-padding-vertical: 6px;
 	--input-padding-horizontal: 8px;
 	--input-margin-vertical: 6px;
+	--odoo-accent: #875a9e;
+	--odoo-accent-strong: #9d71b3;
+	--odoo-danger: #d2687f;
 }
 
 /* Base */
@@ -31,10 +34,10 @@ form > * {
 
 /* Links */
 a {
-	color: var(--vscode-textLink-foreground);
+	color: var(--odoo-accent-strong);
 }
 a:hover {
-	color: var(--vscode-textLink-activeForeground);
+	color: var(--odoo-accent);
 }
 
 /* Buttons */
@@ -43,18 +46,20 @@ button {
 	padding: var(--input-padding-vertical) var(--input-padding-horizontal);
 	border-radius: 6px;
 	outline: none;
-	color: var(--vscode-button-foreground);
-	background: var(--vscode-button-background);
-	transition: background 0.15s ease, transform 0.1s ease;
+	color: #ffffff;
+	background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
 	cursor: pointer;
-	background: var(--vscode-button-hoverBackground);
+	background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
+	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 button:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline: 1px solid var(--odoo-accent-strong);
 }
 
 /* Inputs */
@@ -74,8 +79,8 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-	border-color: var(--vscode-focusBorder);
-	box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+	border-color: var(--odoo-accent-strong);
+	box-shadow: 0 0 0 1px var(--odoo-accent-strong);
 }
 
 input::placeholder,
@@ -107,16 +112,19 @@ textarea::placeholder {
 	border-radius: 6px;
 	cursor: pointer;
 	background: transparent;
-	transition: background 0.15s ease;
+	color: #ffffff;
+	transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .page-btn.active {
-	background: var(--vscode-list-activeSelectionBackground);
-	color: var(--vscode-list-activeSelectionForeground);
+	background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+	color: #ffffff;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .page-btn:hover {
 	background: var(--vscode-list-hoverBackground);
+	color: #ffffff;
 }
 
 .page-btn-icon-only {
@@ -172,13 +180,13 @@ textarea::placeholder {
 
 /* Hover */
 .o-checkbox-container:hover .o-checkmark {
-    border-color: var(--vscode-focusBorder);
+    border-color: var(--odoo-accent-strong);
 }
 
 /* Checked */
 .o-checkbox-container input:checked + .o-checkmark {
-    background: var(--vscode-button-background);
-    border-color: var(--vscode-button-background);
+    background: var(--odoo-accent);
+    border-color: var(--odoo-accent);
 }
 
 /* White check */
@@ -245,13 +253,13 @@ textarea::placeholder {
     border-radius: 4px;
     cursor: pointer;
 
-    color: var(--vscode-descriptionForeground);
+    color: var(--odoo-accent-strong);
     transition: background 0.15s ease, color 0.15s ease;
 }
 
 .add-btn:hover {
     background: var(--vscode-list-hoverBackground);
-    color: var(--vscode-foreground);
+    color: var(--odoo-accent);
 }
 
 .add-btn .codicon {
@@ -285,27 +293,27 @@ textarea::placeholder {
 .danger-btn {
     padding: 6px 10px;
     border-radius: 6px;
-    border: 1px solid var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    background: var(--vscode-button-background);
+    border: 1px solid var(--odoo-accent);
+    color: #ffffff;
+    background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
     cursor: pointer;
 }
 
 .primary-btn:hover,
 .danger-btn:hover {
-    background: var(--vscode-button-hoverBackground);
+    background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
 }
 
 .danger-btn {
-    border-color: var(--vscode-errorForeground);
-    background: var(--vscode-errorForeground);
-    color: var(--vscode-editor-background);
+    border-color: var(--odoo-danger);
+    background: linear-gradient(180deg, #db7e92, var(--odoo-danger));
+    color: #fff8fb;
 }
 
 .stop-btn {
     border-color: var(--vscode-input-border);
     background: transparent;
-    color: var(--vscode-foreground);
+    color: var(--odoo-accent-strong);
 }
 
 .stop-btn:disabled {
@@ -314,9 +322,9 @@ textarea::placeholder {
 }
 
 .stop-btn.active {
-    border-color: var(--vscode-errorForeground);
-    background: var(--vscode-errorForeground);
-    color: var(--vscode-editor-background);
+    border-color: var(--odoo-danger);
+    background: linear-gradient(180deg, #db7e92, var(--odoo-danger));
+    color: #fff8fb;
 }
 
 .running-indicator {
@@ -353,13 +361,13 @@ textarea::placeholder {
 /* Delete */
 .delete-btn {
 	background: transparent;
-	color: var(--vscode-descriptionForeground);
+	color: var(--odoo-accent-strong);
 	padding: 0;
 	font-size: 15px;
 }
 
 .delete-btn:hover {
-	color: var(--vscode-errorForeground);
+	color: var(--odoo-danger);
 	transform: scale(1.1);
 	background: transparent !important;
 }
@@ -404,6 +412,7 @@ textarea::placeholder {
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.04);
     color: var(--vscode-descriptionForeground);
+    border: none;
 }
 
 .command-wrap {
@@ -426,14 +435,14 @@ textarea::placeholder {
     bottom: 22px;
     padding: 4px 6px;
     border-radius: 4px;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-    border: 1px solid var(--vscode-button-background);
+    background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+    color: #ffffff;
+    border: 1px solid var(--odoo-accent);
     cursor: pointer;
 }
 
 .copy-btn:hover {
-    background: var(--vscode-button-hoverBackground);
+    background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
 }
 
 .run-command-section {
@@ -548,7 +557,7 @@ textarea::placeholder {
 .cli-key {
     width: 120px;
     font-family: monospace;
-    color: var(--vscode-textLink-foreground);
+    color: var(--odoo-accent-strong);
 }
 
 .cli-input {
@@ -587,7 +596,7 @@ textarea::placeholder {
 
 .field-error {
     margin-top: 6px;
-    color: var(--vscode-errorForeground);
+    color: #f3a7b5;
     font-size: 12px;
 }
 
@@ -600,14 +609,14 @@ textarea::placeholder {
     padding: 5px 6px;
     font-size: 11px;
     white-space: nowrap;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
+    background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+    color: #ffffff;
     border-radius: 6px;
     cursor: pointer;
 }
 
 .git-action-btn:hover {
-    background: var(--vscode-button-hoverBackground);
+    background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
 }
 
 .git-action-btn:disabled {
@@ -616,8 +625,8 @@ textarea::placeholder {
 }
 
 .git-action-danger {
-    background: var(--vscode-errorForeground);
-    color: var(--vscode-editor-background);
+    background: linear-gradient(180deg, #db7e92, var(--odoo-danger));
+    color: #fff8fb;
 }
 
 /* Git loading bar */
@@ -634,7 +643,7 @@ textarea::placeholder {
 
 .git-loading-progress {
     height: 100%;
-    background: var(--vscode-progressBar-background, var(--vscode-button-background));
+    background: linear-gradient(90deg, var(--odoo-accent), #c090dc);
     animation: git-loading-slide 1.4s ease-in-out infinite;
     transform-origin: left center;
 }
