@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 
-import { TerminalService, StateService } from "./services";
+import { TerminalService, StateService, CopilotService } from "./services";
 import {
 	UIHandler,
 	TerminalHandler,
@@ -15,9 +15,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = "odoo-dev-kit-sidebar";
 	private _view?: vscode.WebviewView;
 	private _terminal?: vscode.Terminal;
-	private _serverRunning = false;
 	private _disposables: vscode.Disposable[] = [];
-	private _hasShownTerminal = false;
 	private _lastExecution?: vscode.TerminalShellExecution;
 
 	constructor(
@@ -27,7 +25,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 		this._disposables.push(
 			vscode.window.onDidCloseTerminal(terminal => {
 				if (this._terminal && terminal === this._terminal) {
-					this._serverRunning = false;
 					this._terminal = undefined;
 					this._lastExecution = undefined;
 					this._view?.webview.postMessage({
@@ -45,7 +42,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 					this._lastExecution &&
 					event.execution === this._lastExecution
 				) {
-					this._serverRunning = false;
 					this._view?.webview.postMessage({
 						command: "serverStatus",
 						running: false,
@@ -72,6 +68,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
 		const terminalService = new TerminalService();
 		const stateService = new StateService(this._context);
+		const copilotService = new CopilotService(this._context, webviewView.webview);
 
 		const handlers = {
 			uiHandler: new UIHandler(),
@@ -79,6 +76,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 			gitHandler: new GitHandler(this._context, webviewView.webview),
 			dbHandler: new DbHandler(webviewView.webview),
 			stateHandler: new StateHandler(stateService, webviewView.webview),
+			aiHandler: copilotService.handlers,
 		};
 
 		const router = createMessageRouter(handlers);

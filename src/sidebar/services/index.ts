@@ -1,4 +1,5 @@
-import { TerminalService } from "./terminalService";
+import { CopilotService } from "./copilotService";
 import { StateService } from "./stateService";
+import { TerminalService } from "./terminalService";
 
-export { TerminalService, StateService };
+export { CopilotService, StateService, TerminalService };

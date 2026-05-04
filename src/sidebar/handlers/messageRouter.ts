@@ -4,8 +4,11 @@ export function createMessageRouter(ctx: {
 	dbHandler: any;
 	stateHandler: any;
 	uiHandler: any;
+	aiHandler: {
+		improveCommit: (message: { text?: string }) => Promise<void>;
+	};
 }) {
-	return async function handle(message: any) {
+	return async function handle(message: { command?: string; text?: string; state?: unknown }) {
 		const map: Record<string, Function> = {
 			showMessage: () => ctx.uiHandler.showInfo(message.text),
 			showWarning: () => ctx.uiHandler.showWarning(message.text),
@@ -24,8 +27,10 @@ export function createMessageRouter(ctx: {
 			requestState: () => ctx.stateHandler.restore(),
 
 			gitCommand: () => ctx.gitHandler.handle(message),
+			improveCommit: () => ctx.aiHandler.improveCommit(message),
 		};
 
-		await map[message.command]?.();
+		const command = message.command || "";
+		await map[command]?.();
 	};
 }

@@ -17,6 +17,9 @@
     "icon": "assets/parthpatel.jpeg",
     "activationEvents": [],
     "main": "./out/extension.js",
+    "extensionSuggestions": [
+        "GitHub.copilot-chat"
+    ],
     "contributes": {
         "commands": [
             {

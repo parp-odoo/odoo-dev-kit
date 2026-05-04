@@ -10,6 +10,7 @@ export class GitControl extends Component {
 
 	setup() {
 		this.vscode = this.props.vscode;
+		this._improveErrorTimer = null;
 		const savedState = this.vscode.getState() || {};
 
 		this.state = useState(createGitControlState(savedState));
@@ -66,9 +67,26 @@ export class GitControl extends Component {
 					if (command === "resolvedCurrentBranch") {
 						this.state.currentBranch = (message.branch || "").trim();
 					}
+					if (command === "copilotStatus") {
+						this.state.copilotAvailable = !!message.available;
+					}
+					if (command === "commitImproved") {
+						this.clearImproveErrorTimer();
+						this.state.commitMessage = (message.text || "").trim();
+						this.state.improvingCommit = false;
+						this.state.improveError = "";
+					}
+					if (command === "commitError") {
+						this.state.improvingCommit = false;
+						this.state.improveError = (message.message || "Failed to improve commit message.").trim();
+						this.scheduleImproveErrorClear();
+					}
 				};
 				window.addEventListener("message", handler);
-				return () => window.removeEventListener("message", handler);
+				return () => {
+					this.clearImproveErrorTimer();
+					window.removeEventListener("message", handler);
+				};
 			},
 			() => [],
 		);
@@ -101,6 +119,21 @@ export class GitControl extends Component {
 		if (this.state.commitValidation) {
 			this.state.commitValidation = "";
 		}
+	}
+
+	clearImproveErrorTimer() {
+		if (this._improveErrorTimer) {
+			clearTimeout(this._improveErrorTimer);
+			this._improveErrorTimer = null;
+		}
+	}
+
+	scheduleImproveErrorClear() {
+		this.clearImproveErrorTimer();
+		this._improveErrorTimer = window.setTimeout(() => {
+			this.state.improveError = "";
+			this._improveErrorTimer = null;
+		}, 5000);
 	}
 
 	requestCurrentBranch() {
@@ -147,6 +180,25 @@ export class GitControl extends Component {
 		this.state.commitValidation = "";
 		this.gitAction(amend ? "commitAmend" : "commit", {
 			commitMessage: commitMessage || undefined,
+		});
+	}
+
+	improveCommit() {
+		const commitMessage = (this.state.commitMessage || "").trim();
+		if (!commitMessage) {
+			this.vscode.postMessage({
+				command: "showWarning",
+				text: "Please enter a commit message first.",
+			});
+			return;
+		}
+
+		this.clearImproveErrorTimer();
+		this.state.improveError = "";
+		this.state.improvingCommit = true;
+		this.vscode.postMessage({
+			command: "improveCommit",
+			text: this.state.commitMessage,
 		});
 	}
 
@@ -224,7 +276,15 @@ export class GitControl extends Component {
                         t-on-click="() => this.runCommitAction(true)" title="Amend latest commit with current diff">
                         <i class="codicon codicon-edit"/> Amend
                     </button>
+                    <button t-if="state.copilotAvailable" class="git-action-btn"
+                        t-att-disabled="state.loading || state.improvingCommit"
+                        t-on-click="improveCommit" title="Improve commit message">
+                        <i class="codicon codicon-sparkle"/>
+                        <t t-if="state.improvingCommit">Improving…</t>
+                        <t t-else="">Improve</t>
+                    </button>
                 </div>
+                <div t-if="state.improveError" class="field-error" t-out="state.improveError" />
             </Accordion>
 
             <!-- Checkout history -->

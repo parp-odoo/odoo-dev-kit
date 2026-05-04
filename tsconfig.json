@@ -4,7 +4,8 @@
 		"target": "ES2022",
 		"outDir": "out",
 		"lib": [
-			"ES2022"
+			"ES2022",
+			"es2018"
 		],
 		"types": ["node"],
 		"sourceMap": true,
