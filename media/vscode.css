@@ -3,9 +3,10 @@
 	--input-padding-vertical: 6px;
 	--input-padding-horizontal: 8px;
 	--input-margin-vertical: 6px;
-	--odoo-accent: #875a9e;
-	--odoo-accent-strong: #9d71b3;
-	--odoo-danger: #d2687f;
+	--odoo-accent: #733B73;
+	--odoo-accent-strong: #733B73;
+	--odoo-danger: #C6373C;
+    --odoo-secondary-accent: #017e84;
 }
 
 /* Base */
@@ -16,6 +17,13 @@ body {
 	font-weight: var(--vscode-font-weight);
 	font-family: var(--vscode-font-family);
 	background-color: var(--vscode-editor-background);
+}
+
+@supports (color: color-mix(in srgb, white, black)) {
+	body {
+		/* Slightly brighten text vs VS Code theme foreground */
+		color: color-mix(in srgb, var(--vscode-foreground) 85%, #ffffff);
+	}
 }
 
 ol,
@@ -47,14 +55,14 @@ button {
 	border-radius: 6px;
 	outline: none;
 	color: #ffffff;
-	background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+	background: var(--odoo-accent);
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 	transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
 	cursor: pointer;
-	background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
+	background: #aa7fc0;
 	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
@@ -117,7 +125,7 @@ textarea::placeholder {
 }
 
 .page-btn.active {
-	background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+	background: var(--odoo-accent);
 	color: #ffffff;
 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -295,19 +303,22 @@ textarea::placeholder {
     border-radius: 6px;
     border: 1px solid var(--odoo-accent);
     color: #ffffff;
-    background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+    background: var(--odoo-accent);
     cursor: pointer;
 }
 
-.primary-btn:hover,
-.danger-btn:hover {
-    background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
+.primary-btn:hover {
+    background: #aa7fc0;
 }
 
 .danger-btn {
     border-color: var(--odoo-danger);
-    background: linear-gradient(180deg, #db7e92, var(--odoo-danger));
+    background: var(--odoo-danger);
     color: #fff8fb;
+}
+
+.danger-btn:hover {
+    background: #db7e92;
 }
 
 .stop-btn {
@@ -323,7 +334,7 @@ textarea::placeholder {
 
 .stop-btn.active {
     border-color: var(--odoo-danger);
-    background: linear-gradient(180deg, #db7e92, var(--odoo-danger));
+    background: var(--odoo-danger);
     color: #fff8fb;
 }
 
@@ -435,14 +446,14 @@ textarea::placeholder {
     bottom: 22px;
     padding: 4px 6px;
     border-radius: 4px;
-    background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+    background: var(--odoo-accent);
     color: #ffffff;
     border: 1px solid var(--odoo-accent);
     cursor: pointer;
 }
 
 .copy-btn:hover {
-    background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
+    background: #aa7fc0;
 }
 
 .run-command-section {
@@ -557,7 +568,7 @@ textarea::placeholder {
 .cli-key {
     width: 120px;
     font-family: monospace;
-    color: var(--odoo-accent-strong);
+    color: #FFADFF;
 }
 
 .cli-input {
@@ -609,14 +620,14 @@ textarea::placeholder {
     padding: 5px 6px;
     font-size: 11px;
     white-space: nowrap;
-    background: linear-gradient(180deg, var(--odoo-accent-strong), var(--odoo-accent));
+    background: var(--odoo-accent);
     color: #ffffff;
     border-radius: 6px;
     cursor: pointer;
 }
 
 .git-action-btn:hover {
-    background: linear-gradient(180deg, #aa7fc0, var(--odoo-accent-strong));
+    background: #aa7fc0;
 }
 
 .git-action-btn:disabled {
@@ -625,8 +636,8 @@ textarea::placeholder {
 }
 
 .git-action-danger {
-    background: linear-gradient(180deg, #db7e92, var(--odoo-danger));
-    color: #fff8fb;
+    background: var(--odoo-secondary-accent);
+    color: #ffffff;
 }
 
 /* Git loading bar */
@@ -643,7 +654,7 @@ textarea::placeholder {
 
 .git-loading-progress {
     height: 100%;
-    background: linear-gradient(90deg, var(--odoo-accent), #c090dc);
+    background: var(--odoo-accent);
     animation: git-loading-slide 1.4s ease-in-out infinite;
     transform-origin: left center;
 }

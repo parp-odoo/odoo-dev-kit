@@ -6,6 +6,39 @@ import { getInitialConfigState, countActiveOptions } from "./state.js";
 
 const { Component, xml, useState, useEffect } = owl;
 
+function stripOptionalQuotes(value) {
+	const str = String(value || "").trim();
+	if (
+		(str.startsWith('"') && str.endsWith('"')) ||
+		(str.startsWith("'") && str.endsWith("'"))
+	) {
+		return str.slice(1, -1).trim();
+	}
+	return str;
+}
+
+function normalizePath(value) {
+	return stripOptionalQuotes(value).replace(/\\/g, "/").replace(/\/+$/g, "");
+}
+
+function joinPath(root, segment) {
+	const sep = root.includes("\\") ? "\\" : "/";
+	const cleanedRoot = String(root || "").replace(/[\\/]+$/g, "");
+	return `${cleanedRoot}${sep}${segment}`;
+}
+
+function resolveOdooRootFromBinPath(odooBinPath) {
+	const raw = stripOptionalQuotes(odooBinPath);
+	if (!raw || raw === "odoo-bin") {
+		return "";
+	}
+	// Only auto-detect when an absolute-ish path is provided.
+	if (!/[\\/]/.test(raw)) {
+		return "";
+	}
+	return raw.replace(/[\\/][^\\/]*$/g, "");
+}
+
 export class Config extends Component {
 	static components = { Accordion, Input };
 
@@ -17,6 +50,116 @@ export class Config extends Component {
 		this.state = useState({
 			config: getInitialConfigState(savedState),
 		});
+
+		useEffect(
+			() => {
+				const odooRoot = resolveOdooRootFromBinPath(this.state.config.odooBinPath);
+				if (!odooRoot) {
+					return;
+				}
+
+				const communityAddonsPath = joinPath(odooRoot, "addons");
+				const normalizedCommunity = normalizePath(communityAddonsPath);
+
+				let didChange = false;
+
+				// Auto-populate "community" addons path
+				const addons = this.state.config.addons || [];
+				const communityRecord = addons.find(a => {
+					const name = String(a?.name || "").trim().toLowerCase();
+					const path = normalizePath(a?.path || "");
+					return name === "community" || path === normalizedCommunity;
+				});
+
+				if (communityRecord) {
+					if (normalizePath(communityRecord.path) !== normalizedCommunity) {
+						communityRecord.path = communityAddonsPath;
+						didChange = true;
+					}
+					if (!String(communityRecord.name || "").trim()) {
+						communityRecord.name = "community";
+						didChange = true;
+					}
+					if (communityRecord.enabled === false) {
+						communityRecord.enabled = true;
+						didChange = true;
+					}
+				} else {
+					const emptyRecord = addons.find(
+						a => !String(a?.name || "").trim() && !String(a?.path || "").trim(),
+					);
+					if (emptyRecord) {
+						emptyRecord.name = "community";
+						emptyRecord.path = communityAddonsPath;
+						emptyRecord.enabled = true;
+					} else {
+						addons.unshift({
+							id: Date.now(),
+							name: "community",
+							path: communityAddonsPath,
+							enabled: true,
+						});
+					}
+					didChange = true;
+				}
+
+				// Auto-add repo to Git Repositories list (base: odoo, dev: odoo-dev)
+				const prev = this.props.vscode.getState() || {};
+				const gitPaths = Array.isArray(prev.gitPaths) ? [...prev.gitPaths] : [];
+				const normalizedRoot = normalizePath(odooRoot);
+				const existingRepo = gitPaths.find(
+					gp => normalizePath(gp?.path || "") === normalizedRoot,
+				);
+
+				if (existingRepo) {
+					let didUpdateRepo = false;
+					if (!String(existingRepo.base || "").trim()) {
+						existingRepo.base = "odoo";
+						didUpdateRepo = true;
+					}
+					if (!String(existingRepo.dev || "").trim()) {
+						existingRepo.dev = "odoo-dev";
+						didUpdateRepo = true;
+					}
+					if (didUpdateRepo) {
+						const next = { ...prev, gitPaths };
+						const plain = clonePlainState(next);
+						this.props.vscode.setState(plain);
+						this.props.vscode.postMessage({
+							command: "persistState",
+							state: plain,
+						});
+					}
+				} else {
+					const emptyGp = gitPaths.find(gp => !String(gp?.path || "").trim());
+					if (emptyGp) {
+						emptyGp.path = odooRoot;
+						emptyGp.base = emptyGp.base || "odoo";
+						emptyGp.dev = emptyGp.dev || "odoo-dev";
+					} else {
+						gitPaths.push({
+							id: Date.now(),
+							path: odooRoot,
+							base: "odoo",
+							dev: "odoo-dev",
+						});
+					}
+					const next = { ...prev, gitPaths };
+					const plain = clonePlainState(next);
+					this.props.vscode.setState(plain);
+					this.props.vscode.postMessage({
+						command: "persistState",
+						state: plain,
+					});
+				}
+
+				if (didChange) {
+					// Trigger persist effect
+					this.state.config.addons = [...addons];
+				}
+			},
+			() => [this.state.config.odooBinPath],
+		);
 
 		useEffect(
 			() => {

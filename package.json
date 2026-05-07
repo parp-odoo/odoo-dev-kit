@@ -14,8 +14,12 @@
     "categories": [
         "Other"
     ],
-    "icon": "assets/parthpatel.jpeg",
-    "activationEvents": [],
+    "icon": "assets/logo.png",
+    "activationEvents": [
+        "onStartupFinished",
+        "onView:odoo-dev-kit-sidebar",
+        "onCommand:odoo-dev-kit.helloOdoo"
+    ],
     "main": "./out/extension.js",
     "extensionSuggestions": [
         "GitHub.copilot-chat"

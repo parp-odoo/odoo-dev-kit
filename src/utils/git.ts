@@ -101,19 +101,11 @@ export async function checkoutBranch(repo: Repo, branch: string): Promise<void> 
 		if (!isVersionAvailable) {
 			return;
 		}
-
+		const branchToCheckout = isBranchAvailable ? branch : version;
 		await execCommand(`git fetch ${base} ${version}`, path);
-		if (isBranchAvailable) {
-			// Dev Branch Checkout
-			await execCommand(`git checkout ${branch}`, path);
-			await execCommand(`git rebase ${base}/${version}`, path);
-			console.log(`Checked out ${branch} in ${path}`);
-			return;
-		}
-		// Version Checkout
-		await execCommand(`git checkout ${version}`, path);
-		execCommand(`git pull ${base} ${version} --rebase`, path);
-		console.log(`Checked out ${branch} in ${version}`);
+		await execCommand(`git checkout ${branchToCheckout}`, path);
+		await execCommand(`git rebase ${base}/${version}`, path);
+		console.log(`Checked out ${branchToCheckout} in ${path}`);
 	} catch (err: any) {
 		throw new Error(
 			`Checkout failed in ${path}: ${err.stderr || err.error?.message || err.message}`,
