@@ -4,6 +4,7 @@
 	--input-padding-horizontal: 8px;
 	--input-margin-vertical: 6px;
 	--odoo-accent: #733B73;
+    --odoo-accent-light: #aa7fc0;
 	--odoo-accent-strong: #733B73;
 	--odoo-danger: #C6373C;
     --odoo-secondary-accent: #017e84;
@@ -261,7 +262,7 @@ textarea::placeholder {
     border-radius: 4px;
     cursor: pointer;
 
-    color: var(--odoo-accent-strong);
+    color: var(--odoo-accent-light);
     transition: background 0.15s ease, color 0.15s ease;
 }
 

@@ -1,15 +1,9 @@
 import * as vscode from "vscode";
 
-import { TerminalService, StateService, CopilotService } from "./services";
-import {
-	UIHandler,
-	TerminalHandler,
-	GitHandler,
-	DbHandler,
-	StateHandler,
-	createMessageRouter,
-} from "./handlers";
+import { registerServices } from "./services";
 import { getWebviewHtml } from "./webview/html";
+import { getHandlers, initServices } from "./services/serviceRegistry";
+type MessagePayload = { command?: string; text?: string; state?: unknown;[key: string]: unknown };
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = "odoo-dev-kit-sidebar";
@@ -66,21 +60,15 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.options = { enableScripts: true };
 		webviewView.webview.html = getWebviewHtml(webviewView.webview, this._extensionUri);
 
-		const terminalService = new TerminalService();
-		const stateService = new StateService(this._context);
-		const copilotService = new CopilotService(this._context, webviewView.webview);
+		registerServices();
+		initServices(this._context, webviewView.webview);
+		const handlers = getHandlers() as Record<string, (message: MessagePayload) => Promise<unknown> | unknown>;
 
-		const handlers = {
-			uiHandler: new UIHandler(),
-			terminalHandler: new TerminalHandler(terminalService, webviewView.webview),
-			gitHandler: new GitHandler(this._context, webviewView.webview),
-			dbHandler: new DbHandler(webviewView.webview),
-			stateHandler: new StateHandler(stateService, webviewView.webview),
-			aiHandler: copilotService.handlers,
-		};
-
-		const router = createMessageRouter(handlers);
-
-		webviewView.webview.onDidReceiveMessage(router);
+		webviewView.webview.onDidReceiveMessage(
+			async function handle(message: MessagePayload) {
+				const command = message.command || "";
+				await handlers[command]?.(message);
+			}
+		);
 	}
 }

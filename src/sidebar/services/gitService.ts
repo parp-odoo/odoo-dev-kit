@@ -1,13 +1,14 @@
 import * as vscode from "vscode";
+
 import {
-	getVersionFromBranch,
-	checkoutBranch,
-	remoteUpdate,
-	createNewBranch,
-	pushBranch,
-	commitChanges,
 	amendCommit,
+	checkoutBranch,
+	commitChanges,
+	createNewBranch,
 	getCurrentBranchName,
+	getVersionFromBranch,
+	pushBranch,
+	remoteUpdate,
 } from "../../utils/git";
 import { Repo } from "../../types";
 
@@ -17,14 +18,36 @@ const ACTION_WARNINGS: Record<string, string> = {
 	commitAmend: "No changes detected in configured repositories. Nothing to amend.",
 };
 
-export class GitHandler {
+type GitMessage = {
+	action?: string;
+	branch?: string;
+	commitMessage?: string;
+	version?: string;
+};
+
+const WORKSPACE_STATE_KEY = "odooDevKit.webviewState";
+
+export class GitService {
 	constructor(
-		private ctx: vscode.ExtensionContext,
-		private webview: any,
+		private readonly context: vscode.ExtensionContext,
+		private readonly webview: vscode.Webview,
 	) {}
 
+	public readonly handlers = {
+		resolveCurrentBranch: this.resolveCurrentBranch.bind(this),
+		gitCommand: this.gitCommand.bind(this),
+	};
+
+	private getState() {
+		return this.context.workspaceState.get<any>(WORKSPACE_STATE_KEY) || {};
+	}
+
+	private async setState(state: any) {
+		await this.context.workspaceState.update(WORKSPACE_STATE_KEY, state);
+	}
+
 	private async addBranchToHistory(branch: string, clearBranchInput = false) {
-		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
+		const state = this.getState();
 		if (!state.gitHistory) {
 			state.gitHistory = {};
 		}
@@ -37,7 +60,7 @@ export class GitHandler {
 			state.gitHistory[version].push(branch);
 		}
 
-		await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
+		await this.setState(state);
 		this.webview.postMessage({
 			command: "restoreState",
 			state,
@@ -46,13 +69,13 @@ export class GitHandler {
 	}
 
 	private async getRepos(): Promise<Repo[]> {
-		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
+		const state = this.getState();
 		if (!state.gitPaths || !Array.isArray(state.gitPaths)) {
 			return [];
 		}
 
 		const gitPaths = [...state.gitPaths];
-		return gitPaths.filter((gp: any) => gp.path && gp.path.trim());
+		return gitPaths.filter((repo: any) => repo.path && repo.path.trim());
 	}
 
 	async resolveCurrentBranch() {
@@ -79,13 +102,13 @@ export class GitHandler {
 		}
 	}
 
-	async handle(message: any) {
+	async gitCommand(message: GitMessage) {
 		const action = message.action;
 		const commitMessage = (message.commitMessage || "").trim();
 		const branchName = (message.branch || "").trim();
 
 		if (action === "removeHistory") {
-			return await this.removeHistoryState(message.version, message.branch);
+			return this.removeHistoryState(message.version || "", branchName);
 		}
 
 		const repos = await this.getRepos();
@@ -95,13 +118,13 @@ export class GitHandler {
 			);
 		}
 
-		const isCommitActions = action === "commit";
-		if (isCommitActions && !commitMessage) {
+		const isCommitAction = action === "commit";
+		if (isCommitAction && !commitMessage) {
 			return vscode.window.showWarningMessage("Commit message is required.");
 		}
 
-		const isBranchActions = ["checkout", "newBranch"].includes(action);
-		if (isBranchActions && !branchName) {
+		const isBranchAction = action === "checkout" || action === "newBranch";
+		if (isBranchAction && !branchName) {
 			return vscode.window.showWarningMessage("Branch name is required.");
 		}
 
@@ -112,7 +135,7 @@ export class GitHandler {
 			const actions = repos.map(async repo => {
 				switch (action) {
 					case "checkout":
-						return checkoutBranch(repo, message.branch);
+						return checkoutBranch(repo, branchName);
 					case "remoteUpdate":
 						return remoteUpdate(repo);
 					case "newBranch": {
@@ -132,18 +155,20 @@ export class GitHandler {
 						return commitChanges(repo, commitMessage);
 					case "commitAmend":
 						return amendCommit(repo, commitMessage);
+					default:
+						return undefined;
 				}
 			});
 			const actionResults = await Promise.all(actions);
 
-			if (ACTION_WARNINGS[action] && actionResults.every(result => result === false)) {
+			if (action && ACTION_WARNINGS[action] && actionResults.every(result => result === false)) {
 				return vscode.window.showWarningMessage(
 					ACTION_WARNINGS[action] || "Action failed.",
 				);
 			}
 
-			if (isBranchActions) {
-				await this.addBranchToHistory(message.branch, false);
+			if (isBranchAction) {
+				await this.addBranchToHistory(branchName, false);
 			}
 
 			vscode.window.showInformationMessage(`Git ${action} completed successfully.`);
@@ -153,22 +178,23 @@ export class GitHandler {
 		} finally {
 			this.webview.postMessage({ command: "gitOperationEnd" });
 		}
-		return;
 	}
 
-	async removeHistoryState(version: string, branch: string) {
-		const state = this.ctx.workspaceState.get<any>("odooDevKit.webviewState") || {};
-		if (!state?.gitHistory[version]) {
+	private async removeHistoryState(version: string, branch: string) {
+		const state = this.getState();
+		if (!state?.gitHistory?.[version]) {
 			return;
 		}
-		state.gitHistory[version] = state.gitHistory[version].filter((b: string) => b !== branch);
+
+		state.gitHistory[version] = state.gitHistory[version].filter((name: string) => name !== branch);
 		if (state.gitHistory[version].length === 0) {
 			delete state.gitHistory[version];
 		}
-		await this.ctx.workspaceState.update("odooDevKit.webviewState", state);
+
+		await this.setState(state);
 		this.webview.postMessage({
 			command: "restoreState",
-			state: state,
+			state,
 		});
 	}
 }

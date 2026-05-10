@@ -1,18 +1,32 @@
 import * as vscode from "vscode";
 import { exec, execFile } from "child_process";
+
 import { getVersionFromBranch } from "../../utils/git";
 
-export class DbHandler {
-	constructor(private webview: any) {
-		this.webview = webview;
+type DbMessage = {
+	text?: string;
+	dbName?: string;
+	addonPath?: string;
+	requestId?: string;
+};
+
+export class DbService {
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		private readonly webview: vscode.Webview,
+	) {}
+
+	public readonly handlers = {
+		runDropDb: this.dropDb.bind(this),
+		resolveDbNameFromAddon: this.resolveDb.bind(this),
+	};
+
+	private postMessage(message: Record<string, unknown>) {
+		return this.webview.postMessage(message);
 	}
 
-	postMessage(msgObject: Object) {
-		return this.webview.postMessage(msgObject);
-	}
-
-	dropDb(message: any) {
-		const callback = (error: any, stdout: string, stderr: string) => {
+	dropDb(message: DbMessage) {
+		exec(String(message.text || ""), (error, _stdout, stderr) => {
 			const dbName = message.dbName || "database";
 			if (error) {
 				vscode.window.showErrorMessage(`Drop DB failed: ${stderr || error.message}`);
@@ -22,11 +36,10 @@ export class DbHandler {
 				vscode.window.showWarningMessage(`Drop DB warning: ${stderr}`);
 			}
 			vscode.window.showInformationMessage(`DB "${dbName}" dropped successfully.`);
-		};
-		exec(message.text, callback);
+		});
 	}
 
-	resolveDb(message: any) {
+	resolveDb(message: DbMessage) {
 		const addonPath = String(message.addonPath || "").trim();
 		const requestId = message.requestId;
 		if (!addonPath) {
@@ -36,7 +49,8 @@ export class DbHandler {
 				error: "Addon path is missing.",
 			});
 		}
-		const callback = (error: any, stdout: string, stderr: string) => {
+
+		execFile("git", ["-C", addonPath, "rev-parse", "--abbrev-ref", "HEAD"], (error, stdout, stderr) => {
 			if (error) {
 				return this.postMessage({
 					command: "resolvedDbName",
@@ -44,6 +58,7 @@ export class DbHandler {
 					error: (stderr || error.message || "").trim(),
 				});
 			}
+
 			const branch = String(stdout || "").trim();
 			if (!branch) {
 				return this.postMessage({
@@ -52,6 +67,7 @@ export class DbHandler {
 					error: "Could not detect branch name.",
 				});
 			}
+
 			const version = getVersionFromBranch(branch);
 			const dbName = `testdb-${version}`;
 			return this.postMessage({
@@ -61,7 +77,6 @@ export class DbHandler {
 				version,
 				dbName,
 			});
-		};
-		execFile("git", ["-C", addonPath, "rev-parse", "--abbrev-ref", "HEAD"], callback);
+		});
 	}
 }

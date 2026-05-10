@@ -98,8 +98,8 @@ export class CopilotService {
 			}
 		} catch (error: unknown) {
 			if (cancellation.token.isCancellationRequested) {
-                return;
-            }
+				return;
+			}
 			const message =
 				error instanceof Error ? error.message : "Failed to improve commit message.";
 			this.webview.postMessage({
