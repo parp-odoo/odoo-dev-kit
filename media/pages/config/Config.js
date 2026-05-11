@@ -8,10 +8,7 @@ const { Component, xml, useState, useEffect } = owl;
 
 function stripOptionalQuotes(value) {
 	const str = String(value || "").trim();
-	if (
-		(str.startsWith('"') && str.endsWith('"')) ||
-		(str.startsWith("'") && str.endsWith("'"))
-	) {
+	if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
 		return str.slice(1, -1).trim();
 	}
 	return str;
@@ -66,7 +63,9 @@ export class Config extends Component {
 				// Auto-populate "community" addons path
 				const addons = this.state.config.addons || [];
 				const communityRecord = addons.find(a => {
-					const name = String(a?.name || "").trim().toLowerCase();
+					const name = String(a?.name || "")
+						.trim()
+						.toLowerCase();
 					const path = normalizePath(a?.path || "");
 					return name === "community" || path === normalizedCommunity;
 				});
@@ -234,7 +233,7 @@ export class Config extends Component {
                 <div class="option-row">
                     <div class="cli-key">Python venv</div>
                     <div class="cli-input">
-                        <Input type="'text'" value="state.config.pythonVenv" placeholder="'/path/to/venv'"
+                        <Input type="'text'" value="state.config.pythonVenv" placeholder="'/path/to/venv, /path/to/bin/python, or /path/to/bin/activate'"
                             onChange="(val) => this.state.config.pythonVenv = val" />
                     </div>
                 </div>

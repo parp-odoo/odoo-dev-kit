@@ -1,6 +1,14 @@
 # Odoo Dev Kit - Changelog
 
-All notable changes to the `odoo-dev-kit` extension are documented in this file.
+## [0.1.3]
+
+### Runtime & Execution
+
+* Added explicit service registration before sidebar service initialization to avoid missing handler registration at runtime.
+* Refactored sidebar command dispatch to use service handler maps directly.
+* Added automatic port cleanup before starting the Odoo server or test runner when a port is configured.
+* Updated server and test execution to activate the configured Python virtual environment before running Odoo commands.
+* Improved virtualenv path handling so the configuration can accept a venv root, Python executable path, or activation script path.
 
 ## [0.1.0]
 

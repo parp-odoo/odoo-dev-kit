@@ -141,7 +141,11 @@ export class Server extends Component {
 
 	shouldShowDatabaseField() {
 		const serverOptions = this.state.config.cliOptions?.Server || {};
-		return !!serverOptions.database || !!(this.state.params.database || "").trim() || !!(this.state.computedDbName || "").trim();
+		return (
+			!!serverOptions.database ||
+			!!(this.state.params.database || "").trim() ||
+			!!(this.state.computedDbName || "").trim()
+		);
 	}
 
 	getRunCommand() {
@@ -156,6 +160,11 @@ export class Server extends Component {
 
 	validateRunConfiguration() {
 		return validateRunConfiguration(this.state.config, this.getResolvedParams());
+	}
+
+	getResolvedServerPort() {
+		const port = this.getResolvedParams()["http-port"];
+		return port !== undefined && port !== null ? String(port).trim() : "";
 	}
 
 	getResolvedTestingConfig() {
@@ -228,7 +237,7 @@ export class Server extends Component {
 		}
 	}
 
-	async runServer() {
+	async runServer(runMode = "update") {
 		const validationErrors = this.validateRunConfiguration();
 		if (validationErrors.length) {
 			this.vscode.postMessage({
@@ -237,7 +246,7 @@ export class Server extends Component {
 			});
 			return;
 		}
-		this.state.runMode = "update";
+		this.state.runMode = runMode;
 		const command = this.getRunCommand();
 		if (!command) {
 			this.vscode.postMessage({
@@ -249,6 +258,7 @@ export class Server extends Component {
 		this.vscode.postMessage({
 			command: "runCommand",
 			text: command,
+			port: this.getResolvedServerPort(),
 		});
 		this.state.isRunning = true;
 	}
@@ -275,6 +285,7 @@ export class Server extends Component {
 			text: command,
 			dbName,
 		});
+		await this.runServer("init");
 	}
 
 	async runTests() {
@@ -300,6 +311,7 @@ export class Server extends Component {
 		this.vscode.postMessage({
 			command: "runTestCommand",
 			text: command,
+			port: testing.port,
 		});
 	}
 
